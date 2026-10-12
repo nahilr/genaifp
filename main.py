@@ -659,7 +659,7 @@ Available Commands:
                               [--output_json <path>]
 
     web              Start the local web app (install fastapi, uvicorn, python-multipart)
-                     Options: [--model <path>] [--port <n>]
+                     Options: [--model <path>] [--host <addr>] [--port <n>]
 
     build            Build a synthetic demo dataset; real-data feature extraction runs in Kaggle
                      Aliases: build_dataset

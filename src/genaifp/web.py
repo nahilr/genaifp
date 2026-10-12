@@ -145,7 +145,8 @@ def create_app(model_path: str | Path | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def local_request_safety(request, call_next):
-        if request.url.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        allow_remote = os.environ.get("GENAIFP_ALLOW_REMOTE", "").lower() in ("1", "true", "yes")
+        if not allow_remote and request.url.hostname not in {"127.0.0.1", "localhost", "::1"}:
             return JSONResponse({"detail": "This service accepts local browser requests only."}, status_code=403)
         if request.url.path == "/api/predict":
             length = request.headers.get("content-length")
@@ -157,7 +158,7 @@ def create_app(model_path: str | Path | None = None) -> FastAPI:
                 if request_length > MAX_UPLOAD_BYTES + 64 * 1024:
                     return JSONResponse({"detail": "Upload request exceeds the 20 MB limit."}, status_code=413)
             origin = request.headers.get("origin")
-            if origin:
+            if origin and not allow_remote:
                 parsed_origin = urlsplit(origin)
                 if (
                     parsed_origin.scheme != request.url.scheme
@@ -234,11 +235,21 @@ app = create_app()
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the local GenAI Fingerprint web app")
     parser.add_argument("--model", default=None, help="Model path without .json/.pkl extension")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("HOST", "127.0.0.1"),
+        help="Host address to bind to (defaults to 127.0.0.1 or $HOST)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("PORT", "8000")),
+        help="Port to listen on (defaults to 8000 or $PORT)",
+    )
     args = parser.parse_args(argv)
     import uvicorn
 
-    uvicorn.run(create_app(args.model), host="127.0.0.1", port=args.port, access_log=False)
+    uvicorn.run(create_app(args.model), host=args.host, port=args.port, access_log=False)
     return 0
 
 

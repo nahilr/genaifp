@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+.git
+.github
+kaggle-output
+.pytest_cache
+.ruff_cache
+tests
+space

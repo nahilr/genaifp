@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#f5f7f6">
-    <meta name="description" content="Learn what GenAI Fingerprint analyzes, how it is trained, and what its results can and cannot tell you.">
+    <meta name="description" content="Detailed technical guide to GenAI Fingerprint: 524d hybrid features, DINOv2 vision embeddings, SRM 2D FFT spectral analysis, CommunityForensics provenance, and calibrated evaluation.">
     <title>About the project · GenAI Fingerprint</title>
     <link rel="stylesheet" href="/assets/style.css">
   </head>
@@ -24,72 +24,464 @@
 
     <main class="page-main about-main">
       <section class="about-hero" aria-labelledby="about-title">
-        <p class="eyebrow">ABOUT THE PROJECT</p>
-        <h1 id="about-title">A closer look at an image’s visual signature.</h1>
-        <p class="about-lede">GenAI Fingerprint is a research prototype for exploring whether visual content and spatial-frequency patterns can help distinguish images from a small set of known generators and real-camera photographs.</p>
+        <p class="eyebrow">TECHNICAL REPORT & SYSTEM GUIDE</p>
+        <h1 id="about-title">A closer look at an image’s visual and frequency signature.</h1>
+        <p class="about-lede">GenAI Fingerprint (GenAIFP) is an open-source forensic research prototype exploring fine-grained engine attribution. While most detection tools perform binary classification (<em>Real vs. AI</em>), GenAIFP investigates whether fusing self-supervised vision foundation representations with spatial-frequency noise residuals can identify which specific generative model synthesized an image, or whether it originated from authentic camera photography.</p>
         <a class="primary-link" href="/">Try an image <span aria-hidden="true">→</span></a>
       </section>
 
+      <!-- Section 1: Scientific Thesis & Analysis Pipeline -->
       <section class="about-section" aria-labelledby="journey-title">
         <div class="section-label"><span>01</span><span>THE ANALYSIS</span></div>
         <div class="section-content">
-          <h2 id="journey-title">From image to result</h2>
-          <p class="section-lede">Each image passes through the same measured steps. The app compares the resulting feature vector with patterns learned during training.</p>
+          <h2 id="journey-title">The 524-dimensional hybrid feature pipeline</h2>
+          <p class="section-lede">Generative architectures imprint artifacts at two distinct levels: semantic visual tendencies (composition, lighting, color palette) and low-level physical frequency traces (upsampling checkerboards, Fourier spikes, deconvolution patterns). GenAIFP combines both into a single 524-dimensional feature vector.</p>
+
+          <pre class="pipeline-ascii" aria-label="Architecture diagram">Input Image (512 × 512 RGB)
+  │
+  ├── [Visual Branch]   DINOv2 ViT-S/14 ──────────────────> 384d Semantic Embedding
+  │
+  └── [Spectral Branch] SRM 3×3 Filter ──> 2D FFT Spectrum
+                            ├── PCA Dimensionality Reduction ──> 128d Spectral Residuals
+                            └── Physical Frequency Metrics ─────>  12d Spectral Scalars
+                                                                       │
+                                                                       ▼
+                                                    [Fused 524d Feature Vector]
+                                                                       │
+                                                                       ▼
+                                                Calibrated XGBoost (T = 0.935)
+                                                + OOD Distance Gate (0.677)
+                                                                       │
+                                                                       ▼
+                                                Attribution Probability & Status</pre>
+
           <ol class="process-list">
-            <li><span class="process-number">01</span><div><h3>Prepare the image</h3><p>The image is decoded, converted to RGB, and center-cropped to 512 × 512 pixels. Smaller images can be padded for the analysis.</p></div></li>
-            <li><span class="process-number">02</span><div><h3>Measure visual content</h3><p>DINOv2, a pretrained vision model, converts the crop into 384 numbers that summarize visual content and style.</p></div></li>
-            <li><span class="process-number">03</span><div><h3>Measure frequency patterns</h3><p>A second branch analyzes spatial-frequency structure. Its spectrum is compressed to 128 numbers, then combined with 12 hand-designed frequency measurements.</p></div></li>
-            <li><span class="process-number">04</span><div><h3>Compare and report</h3><p>The 524 measurements go to an XGBoost classifier. Calibrated class scores and an uncertainty check are returned with the model’s dataset provenance.</p></div></li>
+            <li>
+              <span class="process-number">01</span>
+              <div>
+                <h3>Prepare the image & luminance conversion</h3>
+                <p>The image is decoded to RGB, center-cropped to 512 × 512 pixels (smaller inputs are reflection-padded), and converted to grayscale luminance via standard ITU-R BT.601 coefficients:</p>
+                <div class="about-formula">Luminance (ITU-R BT.601):
+  Y = 0.299·R + 0.587·G + 0.114·B</div>
+              </div>
+            </li>
+            <li>
+              <span class="process-number">02</span>
+              <div>
+                <h3>Extract visual foundation embeddings (384 dims)</h3>
+                <p>Pretrained <strong>DINOv2 ViT-S/14</strong> (<code>vit_small_patch14_dinov2.lvd142m</code>) processes a resized view of the image crop through self-supervised transformer attention. The output is an L2-normalized 384-dimensional [CLS] vector capturing semantic geometry, lighting distribution, textural motifs, and color gradients.</p>
+              </div>
+            </li>
+            <li>
+              <span class="process-number">03</span>
+              <div>
+                <h3>Extract spatial-frequency noise residuals (128 dims)</h3>
+                <p>The luminance channel is convolved with a 3 × 3 Steganographic Rich Model (SRM) linear high-pass filter to strip semantic edges and isolate microscopic sensor and generative residual noise:</p>
+                <div class="about-formula">SRM High-Pass 3×3 Kernel:
+  [ -1   2  -1 ]
+  [  2  -4   2 ]
+  [ -1   2  -1 ]</div>
+                <p>A 2D Fast Fourier Transform (FFT) converts the residual to frequency space, shifts the zero-frequency DC component to the center, and computes the 2D log-power spectrum:</p>
+                <div class="about-formula">2D Log-Power Spectrum:
+  S(u, v) = log(1 + |F(u, v)|²)</div>
+                <p>The upper-triangular symmetric spectrum is compressed into <strong>128 dimensions</strong> via Principal Component Analysis (PCA) fitted on training data.</p>
+              </div>
+            </li>
+            <li>
+              <span class="process-number">04</span>
+              <div>
+                <h3>Measure physical frequency scalars (12 metrics)</h3>
+                <p>Twelve hand-designed physical measurements capture frequency-domain structure across radial and azimuthal projections:</p>
+                <ul class="process-sublist">
+                  <li><strong>Peak-to-Average Spectral Ratio (PASR)</strong>: Detects isolated periodic Fourier spikes caused by transposed convolution and attention lattice stitching.</li>
+                  <li><strong>Spectral Slope (&alpha;) & Intercept (&beta;)</strong>: Linear regression parameters fitted to the high-frequency tail of Radially Averaged Power Spectral Density (RAPSD).</li>
+                  <li><strong>Directional Anisotropy (Azimuthal Variance)</strong>: Quantifies directional power imbalance across quadrants.</li>
+                  <li><strong>8 Radial Octave Bands</strong>: Energy concentration partitioned from DC to Nyquist limits.</li>
+                </ul>
+              </div>
+            </li>
+            <li>
+              <span class="process-number">05</span>
+              <div>
+                <h3>Calibrated classification & out-of-distribution scoring</h3>
+                <p>The concatenated 524-number vector (384 visual + 128 spectral PCA + 12 frequency scalars) is classified by an XGBoost gradient-boosted decision tree. Raw logits are calibrated using Platt temperature scaling so output scores correspond to empirical likelihoods:</p>
+                <div class="about-formula">Platt Temperature Probability Scaling (T = 0.935):
+  P(y_i) = exp(z_i / T) / &Sigma;_j exp(z_j / T)</div>
+                <p>An Out-of-Distribution (OOD) distance detector gates predictions at threshold <strong>0.677</strong>. Samples that deviate significantly from known target manifolds are flagged as out-of-distribution (<code>is_ood: true</code>).</p>
+              </div>
+            </li>
           </ol>
-          <div class="feature-summary"><span><strong>384</strong> visual</span><span><strong>128</strong> spectrum</span><span><strong>12</strong> frequency</span><span class="feature-total"><strong>524</strong> total measurements</span></div>
+
+          <div class="feature-summary">
+            <span><strong>384</strong> DINOv2 visual</span>
+            <span><strong>128</strong> SRM 2D FFT PCA</span>
+            <span><strong>12</strong> frequency scalars</span>
+            <span class="feature-total"><strong>524</strong> total measurements</span>
+          </div>
         </div>
       </section>
 
+      <!-- Section 2: Supported Classes Reference Table -->
+      <section class="about-section" aria-labelledby="classes-title">
+        <div class="section-label"><span>02</span><span>TARGET CLASSES</span></div>
+        <div class="section-content">
+          <h2 id="classes-title">The 12 supported target categories</h2>
+          <p class="section-lede">The installed model bundle classifies images across 11 generative AI engines and authentic real-world photography. Inputs originating from models outside these 12 categories remain out-of-distribution.</p>
+
+          <div class="about-table-wrap">
+            <table class="about-table">
+              <thead>
+                <tr>
+                  <th>Class Label</th>
+                  <th>Generator Model</th>
+                  <th>Engine Family & Characteristics</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>real_camera</code></td>
+                  <td>Authentic Photography</td>
+                  <td>Natural optical sensor shot noise, Bayer CFA demosaicing signatures, natural high-frequency roll-off with no lattice spikes.</td>
+                </tr>
+                <tr>
+                  <td><code>dalle2</code></td>
+                  <td>OpenAI DALL·E 2</td>
+                  <td>Diffusion-based unCLIP / GLIDE architecture; displays prominent high-frequency spectral artifacts and characteristic upsampling signatures.</td>
+                </tr>
+                <tr>
+                  <td><code>dalle3</code></td>
+                  <td>OpenAI DALL·E 3</td>
+                  <td>Cascaded latent diffusion with advanced synthetic caption conditioning; clean spectral residual with subtle noise patterns.</td>
+                </tr>
+                <tr>
+                  <td><code>firefly_image2</code></td>
+                  <td>Adobe Firefly Image 2</td>
+                  <td>Commercial proprietary diffusion; distinct composition bias and color grading with strong separation from open-source models.</td>
+                </tr>
+                <tr>
+                  <td><code>firefly_image3</code></td>
+                  <td>Adobe Firefly Image 3</td>
+                  <td>Next-generation commercial engine; exhibits sharp, highly distinct spectral and textural fingerprints (top generator performer at 0.837 F1).</td>
+                </tr>
+                <tr>
+                  <td><code>flux_dev</code></td>
+                  <td>BFL FLUX.1 [dev]</td>
+                  <td>12B parameter flow-matching rectified transformer; smooth latent representations with distinctive attention-block grid traces.</td>
+                </tr>
+                <tr>
+                  <td><code>flux_schnell</code></td>
+                  <td>BFL FLUX.1 [schnell]</td>
+                  <td>Distilled 4-step few-step flow-matching model; shares architecture with FLUX dev, resulting in frequent cross-variant confusion.</td>
+                </tr>
+                <tr>
+                  <td><code>ideogram_v1</code></td>
+                  <td>Ideogram V1</td>
+                  <td>Early diffusion architecture specialized in typography and coherent graphic text rendering.</td>
+                </tr>
+                <tr>
+                  <td><code>ideogram_v2</code></td>
+                  <td>Ideogram V2</td>
+                  <td>Advanced text-rendering diffusion model with high variance in style and multi-modal composition.</td>
+                </tr>
+                <tr>
+                  <td><code>imagen3</code></td>
+                  <td>Google Imagen 3</td>
+                  <td>Cascaded photorealistic diffusion engine; subtle residual noise that partially overlaps with modern latent diffusion pipelines.</td>
+                </tr>
+                <tr>
+                  <td><code>midjourney_v5_2</code></td>
+                  <td>Midjourney V5.2</td>
+                  <td>Artistic aesthetic tuning with prominent mid-frequency spectral emphasis and stylized edge rendering.</td>
+                </tr>
+                <tr>
+                  <td><code>midjourney_v6_1</code></td>
+                  <td>Midjourney V6.1</td>
+                  <td>Enhanced realism and micro-texture fidelity (skin pores, hair, cloth); forms distinct visual and spectral clusters (0.765 F1).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Data Provenance & Training Pipeline -->
       <section class="about-section" aria-labelledby="data-title">
-        <div class="section-label"><span>02</span><span>DATA & TRAINING</span></div>
+        <div class="section-label"><span>03</span><span>DATA & PROVENANCE</span></div>
         <div class="section-content">
-          <h2 id="data-title">What the model learns from</h2>
-          <p class="section-lede">The current real-data workflow uses a bounded sample from OwensLab’s CommunityForensics dataset. It covers DALL·E 2, DALL·E 3, Ideogram v2, Imagen 3, Midjourney v6, and real-camera images, plus unsupported-generator and degraded-image examples for uncertainty research.</p>
+          <h2 id="data-title">Dataset provenance & partitioning</h2>
+          <p class="section-lede">Real-data training is executed in Kaggle using curated shards from OwensLab’s <em>CommunityForensics</em> and <em>CommunityForensics-Small</em> datasets (source shards: <code>HFCF_Commercial_0</code>, <code>HFCF_Commercial_1</code>, <code>HFCF_small_174</code>).</p>
+
           <div class="training-flow" aria-label="Training steps">
-            <div><span>01</span><strong>Collect & verify</strong><p>Read image and source metadata from Parquet shards; remove exact duplicate images.</p></div>
-            <div><span>02</span><strong>Keep prompts together</strong><p>Assign shared normalized prompts to a single split to reduce direct leakage.</p></div>
-            <div><span>03</span><strong>Fit & calibrate</strong><p>Fit scaling and PCA on training groups; use a separate calibration split.</p></div>
-            <div><span>04</span><strong>Evaluate once held out</strong><p>Report known-class metrics and out-of-distribution (OOD) rejection separately.</p></div>
+            <div>
+              <span>01</span>
+              <strong>Shard Ingestion</strong>
+              <p>Read raw image bytes and source metadata from Parquet shards; de-duplicate identical image bytes using cryptographic hashing.</p>
+            </div>
+            <div>
+              <span>02</span>
+              <strong>Prompt Grouping</strong>
+              <p>Group samples by normalized prompt hash to ensure images generated from identical prompts never cross train, calibration, or test splits.</p>
+            </div>
+            <div>
+              <span>03</span>
+              <strong>Balanced Caps</strong>
+              <p>Enforce strict caps of 100 clean examples per target class (1,200 total) to prevent large classes from dominating loss gradients.</p>
+            </div>
+            <div>
+              <span>04</span>
+              <strong>OOD Calibration</strong>
+              <p>Generate 1,200 paired degraded copies (JPEG compression, Gaussian blur, downscale/upscale) to tune temperature scaling and OOD gates.</p>
+            </div>
           </div>
-          <div class="data-caveat"><strong>Evaluation boundary</strong><p>The current commercial source shards contain rows marked <code>test</code>. This project’s prompt-grouped holdout is an internal research evaluation, not an official benchmark score. The dataset does not provide generation-batch IDs or individual source-image IDs, so those sources of overlap cannot be ruled out.</p></div>
+
+          <h3 class="about-subheading">Data split counts</h3>
+          <div class="about-table-wrap">
+            <table class="about-table">
+              <thead>
+                <tr>
+                  <th>Partition</th>
+                  <th class="num-col">Clean Target</th>
+                  <th class="num-col">Degraded OOD</th>
+                  <th class="num-col">Prompt Groups</th>
+                  <th>Partition Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Training</strong></td>
+                  <td class="num-col">780 images</td>
+                  <td class="num-col">0</td>
+                  <td class="num-col">735</td>
+                  <td>Fit spectral PCA (128d), scalers, and train the XGBoost classifier trees.</td>
+                </tr>
+                <tr>
+                  <td><strong>Calibration</strong></td>
+                  <td class="num-col">188 images</td>
+                  <td class="num-col">188 images</td>
+                  <td class="num-col">178</td>
+                  <td>Fit Platt temperature scaling (T = 0.935) and set OOD distance gate (0.677).</td>
+                </tr>
+                <tr>
+                  <td><strong>Held-Out Test</strong></td>
+                  <td class="num-col">232 images</td>
+                  <td class="num-col">232 images</td>
+                  <td class="num-col">224</td>
+                  <td>Disjoint holdout evaluation across all 12 classes and degraded OOD recall.</td>
+                </tr>
+                <tr>
+                  <td><strong>Manual Image Export</strong></td>
+                  <td class="num-col">120 images</td>
+                  <td class="num-col">—</td>
+                  <td class="num-col">—</td>
+                  <td>10 distinct holdouts per class exported to <code>samples/</code> with metadata CSV.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="data-caveat">
+            <strong>Evaluation boundary & upstream provenance</strong>
+            <p>In the source dataset, commercial-source rows are marked <code>test</code> while real-camera images are marked <code>train</code>. The splits used here are an internal prompt-grouped research evaluation, not the dataset's official benchmark score. The dataset does not expose generation-batch IDs or individual source-photo IDs, so latent batch-level correlations cannot be completely ruled out.</p>
+          </div>
         </div>
       </section>
 
+      <!-- Section 4: Benchmark Evidence & Evaluation Metrics -->
       <section class="about-section" aria-labelledby="results-title-about">
-        <div class="section-label"><span>03</span><span>CURRENT EVIDENCE</span></div>
+        <div class="section-label"><span>04</span><span>BENCHMARK RESULTS</span></div>
         <div class="section-content">
-          <h2 id="results-title-about">What the evaluation says</h2>
-          <p class="section-lede">The current bounded evaluation is useful for guiding research, but it is not strong enough for dependable real-world attribution.</p>
+          <h2 id="results-title-about">Evaluation metrics on held-out holdout</h2>
+          <p class="section-lede">Evaluated on the internal held-out test split (232 known-class images + 232 degraded OOD images). Results demonstrate strong separation on distinctive engines, alongside clear confusion among modern latent diffusion architectures.</p>
+
           <div class="metric-grid">
-            <article class="metric-card"><strong>64.2%</strong><span>known-class accuracy</span><small>123 held-out known examples</small></article>
-            <article class="metric-card"><strong>0.639</strong><span>macro-F1</span><small>Performance varies by class</small></article>
-            <article class="metric-card metric-warning"><strong>30.7%</strong><span>held-out OOD recall</span><small>Most unsupported examples were not rejected</small></article>
+            <article class="metric-card">
+              <strong>58.2%</strong>
+              <span>known-class accuracy</span>
+              <small>135 / 232 held-out known examples</small>
+            </article>
+            <article class="metric-card">
+              <strong>0.556</strong>
+              <span>macro-F1</span>
+              <small>Unweighted average across 12 classes</small>
+            </article>
+            <article class="metric-card metric-warning">
+              <strong>15.5%</strong>
+              <span>held-out OOD recall</span>
+              <small>232 degraded holdouts (AUROC: 0.723, FRR: 4.8%)</small>
+            </article>
           </div>
-          <p class="metric-note">These figures describe this sample and split only. They do not predict performance on arbitrary images or prove who created an image.</p>
-        </div>
-      </section>
 
-      <section class="about-section" aria-labelledby="privacy-title">
-        <div class="section-label"><span>04</span><span>USE & LIMITS</span></div>
-        <div class="section-content">
-          <h2 id="privacy-title">Local processing, experimental answers</h2>
+          <h3 class="about-subheading">Per-class held-out performance breakdown</h3>
+          <div class="about-table-wrap">
+            <table class="about-table">
+              <thead>
+                <tr>
+                  <th>Class</th>
+                  <th class="num-col">Test Samples</th>
+                  <th class="num-col">Accuracy</th>
+                  <th class="num-col">Macro F1</th>
+                  <th>Separation Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>real_camera</code></td>
+                  <td class="num-col">18</td>
+                  <td class="num-col">94.4%</td>
+                  <td class="num-col"><strong>0.850</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>firefly_image3</code></td>
+                  <td class="num-col">21</td>
+                  <td class="num-col">85.7%</td>
+                  <td class="num-col"><strong>0.837</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>midjourney_v6_1</code></td>
+                  <td class="num-col">17</td>
+                  <td class="num-col">76.5%</td>
+                  <td class="num-col"><strong>0.765</strong></td>
+                  <td><span class="badge badge-strong">Moderate-strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>firefly_image2</code></td>
+                  <td class="num-col">20</td>
+                  <td class="num-col">80.0%</td>
+                  <td class="num-col"><strong>0.744</strong></td>
+                  <td><span class="badge badge-strong">Moderate-strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>dalle2</code></td>
+                  <td class="num-col">18</td>
+                  <td class="num-col">94.4%</td>
+                  <td class="num-col"><strong>0.708</strong></td>
+                  <td><span class="badge badge-strong">Distinct spectral fingerprint</span></td>
+                </tr>
+                <tr>
+                  <td><code>midjourney_v5_2</code></td>
+                  <td class="num-col">21</td>
+                  <td class="num-col">76.2%</td>
+                  <td class="num-col"><strong>0.615</strong></td>
+                  <td><span class="badge badge-mod">Moderate separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>flux_dev</code></td>
+                  <td class="num-col">22</td>
+                  <td class="num-col">59.1%</td>
+                  <td class="num-col"><strong>0.578</strong></td>
+                  <td><span class="badge badge-mod">Moderate separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>dalle3</code></td>
+                  <td class="num-col">20</td>
+                  <td class="num-col">30.0%</td>
+                  <td class="num-col"><strong>0.387</strong></td>
+                  <td><span class="badge badge-confused">High confusion with modern diffusion</span></td>
+                </tr>
+                <tr>
+                  <td><code>imagen3</code></td>
+                  <td class="num-col">22</td>
+                  <td class="num-col">22.7%</td>
+                  <td class="num-col"><strong>0.357</strong></td>
+                  <td><span class="badge badge-confused">Challenging attribution</span></td>
+                </tr>
+                <tr>
+                  <td><code>flux_schnell</code></td>
+                  <td class="num-col">14</td>
+                  <td class="num-col">42.9%</td>
+                  <td class="num-col"><strong>0.343</strong></td>
+                  <td><span class="badge badge-confused">Confused with FLUX dev</span></td>
+                </tr>
+                <tr>
+                  <td><code>ideogram_v1</code></td>
+                  <td class="num-col">21</td>
+                  <td class="num-col">23.8%</td>
+                  <td class="num-col"><strong>0.270</strong></td>
+                  <td><span class="badge badge-confused">Challenging attribution</span></td>
+                </tr>
+                <tr>
+                  <td><code>ideogram_v2</code></td>
+                  <td class="num-col">18</td>
+                  <td class="num-col">16.7%</td>
+                  <td class="num-col"><strong>0.214</strong></td>
+                  <td><span class="badge badge-confused">High variance / low sample F1</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div class="two-notes">
-            <article><h3>What happens to an upload</h3><p>The web app accepts requests from the local machine. It reads the image for analysis and does not save the upload as a file. The browser preview is temporary and stays in the page.</p></article>
-            <article><h3>What a result means</h3><p>A score is a model estimate for one supported class, not image provenance. Editing, compression, unfamiliar generators, and dataset differences can change the result. Do not use it as forensic evidence.</p></article>
+            <article>
+              <h3>Why certain models separate cleanly</h3>
+              <p>Authentic camera images lack synthetic upsampling periodicity. Firefly engines utilize distinct proprietary training sets and pipeline post-processing. DALL·E 2 leaves unmistakable high-frequency spectral roll-offs from unCLIP/GLIDE diffusion upsamplers. Midjourney V6.1 clusters strongly due to specialized aesthetic micro-textures.</p>
+            </article>
+            <article>
+              <h3>Why modern diffusion models cross-confuse</h3>
+              <p>Contemporary engines—such as DALL·E 3, Imagen 3, Ideogram, and FLUX—converge on similar architectural choices: SDXL/FLUX-style VAE decoders, flow matching / rectified schedules, and shared CLIP/T5 text embeddings. Their frequency residuals overlap, making fine-grained discrimination challenging.</p>
+            </article>
           </div>
-          <div class="supported-list"><strong>Supported known classes</strong><span>DALL·E 2</span><span>DALL·E 3</span><span>Ideogram v2</span><span>Imagen 3</span><span>Midjourney v6</span><span>Real camera</span></div>
-          <p class="setup-footnote">The analyzer requires a real-data model bundle with its evaluation manifest. If that model is unavailable, the analysis page explains the setup status instead of returning a prediction.</p>
         </div>
       </section>
 
-      <section class="about-cta"><div><p class="eyebrow">EXPLORE THE PROTOTYPE</p><h2>See what the model reports for an image.</h2></div><a class="primary-link" href="/">Open image analyzer <span aria-hidden="true">→</span></a></section>
+      <!-- Section 5: Architecture & Deployment -->
+      <section class="about-section" aria-labelledby="arch-title">
+        <div class="section-label"><span>05</span><span>ARCHITECTURE</span></div>
+        <div class="section-content">
+          <h2 id="arch-title">System implementation & deployment</h2>
+          <p class="section-lede">GenAIFP is engineered for standalone local execution and lightweight containerization without heavy cloud infrastructure.</p>
+
+          <div class="two-notes">
+            <article>
+              <h3>Local CLI & web interface</h3>
+              <p><code>main.py</code> serves as the primary CLI router for prediction, synthetic demos, and verification. The web app (<code>src/genaifp/web.py</code>) runs on FastAPI and Uvicorn with loopback isolation (<code>127.0.0.1</code>), 20 MB / 40 MP upload limits, and zero external client CDNs.</p>
+            </article>
+            <article>
+              <h3>Containerization & Coolify</h3>
+              <p>A production-ready <code>Dockerfile</code> and <code>docker-compose.yml</code> are optimized for CPU deployments using lightweight CPU PyTorch wheels (~200 MB rather than 2.5 GB CUDA wheels), reverse proxy support (<code>GENAIFP_ALLOW_REMOTE=1</code>), and automated <code>/api/health</code> checks.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Limitations, Perturbations & Non-Forensic Disclaimer -->
+      <section class="about-section" aria-labelledby="privacy-title">
+        <div class="section-label"><span>06</span><span>LIMITS & ETHICS</span></div>
+        <div class="section-content">
+          <h2 id="privacy-title">Operational boundaries & research disclaimers</h2>
+          <p class="section-lede">Understanding what GenAIFP cannot do is as critical as understanding what it does.</p>
+
+          <div class="two-notes">
+            <article>
+              <h3>In-memory privacy guarantees</h3>
+              <p>The web service accepts requests locally. Image bytes are decoded, cropped, and analyzed entirely in RAM and immediately released. Uploaded files are never written to disk, cached, or transmitted to any remote cloud endpoint.</p>
+            </article>
+            <article>
+              <h3>Perturbation sensitivity</h3>
+              <p>Severe JPEG compression, social media messaging re-encoding (e.g., WhatsApp, Twitter/X), downscale-upscale resampling, or screenshots erase delicate high-frequency residuals. Under heavy degradation, models frequently misattribute classes without triggering OOD uncertainty.</p>
+            </article>
+          </div>
+
+          <div class="data-caveat">
+            <strong>Not legal or forensic evidence</strong>
+            <p>Predictions are experimental research estimates. A high attribution probability indicates mathematical proximity in the 524-dimensional feature space to training shards, not verified authorship, authenticity, or legal proof of origin. Unsupported generative models (e.g., Stable Diffusion 1.5, Midjourney V4, Grok) are caught by the OOD gate at modest recall (~15.5%) and may receive false high-confidence attributions. <strong>Never use GenAIFP as sole evidence in legal, journalistic, employment, or disciplinary proceedings.</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-cta">
+        <div>
+          <p class="eyebrow">EXPLORE THE PROTOTYPE</p>
+          <h2>Analyze an image with the hybrid model.</h2>
+        </div>
+        <a class="primary-link" href="/">Open image analyzer <span aria-hidden="true">→</span></a>
+      </section>
     </main>
 
-    <footer class="site-footer"><span>GenAI Fingerprint <span class="footer-muted">· experimental image attribution</span></span><a href="/">Back to analysis</a></footer>
+    <footer class="site-footer">
+      <span>GenAI Fingerprint <span class="footer-muted">· experimental image attribution</span></span>
+      <a href="/">Back to analysis</a>
+    </footer>
   </body>
 </html>

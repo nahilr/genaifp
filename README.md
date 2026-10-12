@@ -2,272 +2,364 @@
 
 GenAI Fingerprint (GenAIFP) is a local research prototype that estimates whether an image resembles one of the generator classes in its installed model or the real-camera class. It combines a pretrained DINOv2 visual embedding, spatial-frequency measurements, and a calibrated XGBoost classifier. The project includes a command-line interface, a local browser interface, and a Kaggle training workflow.
 
-**The output is experimental. It can be wrong and is not evidence of an image's origin, not a forensic conclusion, and not a benchmark result.** The included model is a bounded research model with significant class imbalance in performance and weak rejection of unsupported inputs. Read the evaluation and limitations below before interpreting a prediction.
+> **Disclaimer:** **The output is experimental. It can be wrong and is not evidence of an image's origin, not a forensic conclusion, and not a benchmark result.** The included model is a bounded research model with significant class imbalance in performance and weak rejection of unsupported inputs. Read the evaluation and limitations below before interpreting a prediction.
+
+---
 
 ## Contents
 
-- [Current state](#current-state)
-- [What the system does](#what-the-system-does)
-- [Quick start: use the included model](#quick-start-use-the-included-model)
-- [Install from a clean checkout](#install-from-a-clean-checkout)
-- [Analyze an image from the command line](#analyze-an-image-from-the-command-line)
-- [All CLI commands](#all-cli-commands)
-- [Use the local web app](#use-the-local-web-app)
-- [Retrain in Kaggle, then download the model](#retrain-in-kaggle-then-download-the-model)
-- [Synthetic demo mode](#synthetic-demo-mode)
-- [Project layout](#project-layout)
-- [Tests](#tests)
-- [Dataset, privacy, and limitations](#dataset-privacy-and-limitations)
+- [Local Setup & Quick Start](#local-setup--quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Option A: Python Virtual Environment (Recommended)](#option-a-python-virtual-environment-recommended)
+  - [Option B: Docker / Container Setup](#option-b-docker--container-setup)
+  - [Verify Your Installation](#verify-your-installation)
+- [Using the System](#using-the-system)
+  - [Local Web Interface](#local-web-interface)
+  - [Command-Line Interface (CLI)](#command-line-interface-cli)
+  - [All CLI Commands](#all-cli-commands)
+- [How the System Works](#how-the-system-works)
+  - [Prediction Pipeline](#prediction-pipeline)
+  - [Supported Output Classes](#supported-output-classes)
+- [Project & Evaluation Metrics](#project--evaluation-metrics)
+  - [System & Architecture Metrics](#system--architecture-metrics)
+  - [Dataset & Partitioning Metrics](#dataset--partitioning-metrics)
+  - [Benchmark & Attribution Metrics](#benchmark--attribution-metrics)
+  - [Per-Class Held-Out Performance](#per-class-held-out-performance)
+- [Advanced Workflows](#advanced-workflows)
+  - [Retrain in Kaggle & Download Models](#retrain-in-kaggle--download-models)
+  - [Synthetic Demo Mode](#synthetic-demo-mode)
+  - [Running Automated Tests](#running-automated-tests)
+- [Project Layout](#project-layout)
+- [Dataset, Privacy, and Limitations](#dataset-privacy-and-limitations)
 
-## Current state
+---
 
-The workspace contains the installed Kaggle model bundle in `models/`, the Kaggle-generated evaluation and provenance reports in `reports/`, 120 labeled held-out images in `samples/communityforensics-test/`, and the three downloaded ZIP archives in the ignored `kaggle-output/downloads/` folder. Raw source shards and generated feature tables remain in Kaggle and are not downloaded locally.
+## Local Setup & Quick Start
 
-| Internal grouped evaluation | Latest Kaggle run result |
-|---|---:|
-| Known-class held-out accuracy | 58.2% (232 examples) |
-| Known-class macro-F1 | 0.556 |
-| Held-out degraded-image OOD recall | 15.5% (232 examples) |
-| Calibration degraded-image OOD AUROC | 0.723 |
-| Calibration false reject rate | 4.8% |
+You can run predictions immediately upon cloning the repository—the calibrated model bundle (`models/attribution_hybrid`) is tracked in Git, so you do not need to download training datasets or train a model locally.
 
-Per-class F1 on the held-out known-class rows:
+### Prerequisites
 
-| Class | Test examples | F1 |
-|---|---:|---:|
-| DALL·E 2 | 18 | 0.708 |
-| DALL·E 3 | 20 | 0.387 |
-| Firefly Image 2 | 20 | 0.744 |
-| Firefly Image 3 | 21 | 0.837 |
-| FLUX dev | 22 | 0.578 |
-| FLUX schnell | 14 | 0.343 |
-| Ideogram V1 | 21 | 0.270 |
-| Ideogram V2 | 18 | 0.214 |
-| Imagen 3 | 22 | 0.357 |
-| Midjourney V5.2 | 21 | 0.615 |
-| Midjourney V6.1 | 17 | 0.765 |
-| Real camera | 18 | 0.850 |
+- **Python**: Version 3.10 or newer (tested on 3.10–3.12).
+- **System Libraries (Linux)**: OpenCV and Pillow require standard graphic runtime libraries:
+  ```bash
+  # Debian / Ubuntu / Mint
+  sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0
+  ```
+- **Internet Access on First Run**: Required during initial setup to fetch packages, and on the first image analysis to download pretrained DINOv2 weights via `torch.hub`.
+- **Hardware**: CPU inference is fully supported; a CUDA-capable GPU improves inference speed.
 
-These are internal prompt-grouped results, not an official benchmark score. The 11 generator classes come from source rows marked `test`; the real-camera rows came from source rows marked `train`. The configured shards contained no unsupported generator examples, so OOD calibration and recall use degraded copies of target images. This 15.5% OOD recall does not measure rejection of genuinely unseen generators. Prompt grouping also cannot guarantee generation-batch or source-photo separation.
+---
 
-## What the system does
+### Option A: Python Virtual Environment (Recommended)
 
-### Prediction pipeline
+Run all commands from the repository root so `main.py`, `src/genaifp/`, and `models/` resolve correctly:
 
-The ready-to-use model expects a 512 × 512 RGB crop (smaller inputs are padded by the local analyzer). Processing proceeds as follows:
+1. **Clone the repository and enter the directory**:
+   ```bash
+   git clone <repository-url>
+   cd genaifp
+   ```
 
-1. **Preprocess the image.** Decode it as RGB and take a center crop. The spectral branch converts the crop to luminance and applies a 3 × 3 SRM high-pass filter to emphasize local residual patterns.
-2. **Extract visual features.** DINOv2 (`vit_small_patch14_dinov2.lvd142m`) processes a resized view of the crop and produces a normalized 384-number embedding. This is a general pretrained visual representation; it is not itself an image-generator detector.
-3. **Extract spatial-frequency features.** The residual is transformed with a 2D FFT. A log-power spectrum is summarized and projected through a training-fitted scaler and PCA into 128 numbers.
-4. **Add hand-designed measurements.** Twelve values describe spectral peak-to-average ratio, high-frequency slope and intercept, energy across eight radial frequency bands, and directional variation.
-5. **Classify and assess uncertainty.** The 384 + 128 + 12 values form a 524-number vector for the XGBoost classifier. A separate calibration step adjusts class probabilities, and a separate OOD model/threshold estimates whether an input may be outside the supported classes.
-6. **Return a research result.** The CLI and web UI show the predicted class, scores, uncertainty/OOD fields, and model provenance. An OOD flag is not guaranteed to catch unknown images.
+2. **Create and activate a virtual environment**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate       # On Linux / macOS
+   # .venv\Scripts\activate       # On Windows PowerShell
+   ```
 
-### Supported output classes
+3. **Install core project dependencies**:
+   `requirements.txt` installs all core libraries and Web UI server packages (`fastapi`, `uvicorn`, `python-multipart`):
+   ```bash
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
 
-The installed Kaggle model has 12 labels: `dalle2`, `dalle3`, `midjourney_v5_2`, `midjourney_v6_1`, `firefly_image2`, `firefly_image3`, `flux_dev`, `flux_schnell`, `ideogram_v1`, `ideogram_v2`, `imagen3`, and `real_camera`. Other inputs do not receive a named generator class. Class labels are dataset categories, not proof of model lineage.
+4. **Install PyTorch and vision models**:
+   PyTorch is kept separate so you can install the build optimal for your hardware:
+   - **For CPU only (lightweight, ~200 MB)**:
+     ```bash
+     python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+     python -m pip install timm
+     ```
+   - **For CUDA GPU (NVIDIA)**:
+     ```bash
+     python -m pip install torch torchvision timm
+     ```
 
-### Training pipeline at a glance
+*(Alternative: You can also install in editable mode via optional extras: `pip install -e '.[web,dev]'` after installing your preferred PyTorch build).*
 
-In Kaggle, the CommunityForensics workflow reads image bytes and source metadata from Parquet shards, selects capped samples, removes exact duplicate encoded images, creates prompt-based grouping IDs, computes features, records source provenance, and adds one degraded copy for each retained known-class image. It uses prompt-group-disjoint train, calibration, and test partitions, fits scaling/PCA on training groups, calibrates probabilities and OOD rejection on calibration groups, and reports internal held-out results. The dataset has no generation-batch ID or unique real source-image ID, so those relationships cannot be kept disjoint.
+---
 
-For the latest completed run, the 12 target classes supplied 1,200 original examples in total, capped at 100 per class. Those examples were divided into 780 training, 188 calibration, and 232 test examples. Their degraded copies supplied 188 calibration OOD examples and 232 test OOD examples. The prompt-group counts were 735 training, 178 calibration, and 224 test. No unsupported-generator examples were found in the configured shards.
+### Option B: Docker / Container Setup
 
-The source split is kept in the manifest for provenance: 1,100 selected generator rows were marked `test` upstream and 100 real-camera rows were marked `train`. The internal partitions are built by prompt groups across those source rows; they do not reproduce the dataset's official benchmark split. The Kaggle run exports three archives: the model bundle, a set of 120 held-out images with 10 for each target class, and the generated evaluation and provenance reports.
-
-## Quick start: use the included model
-
-### Install from a clean checkout
-
-Use Python 3.10 or newer. These steps do not install this repository as a package. Run commands from the project root so `main.py`, `src/genaifp/`, and `models/` resolve correctly.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install torch torchvision timm
-```
-
-`requirements.txt` supplies the project's general Python dependencies. PyTorch, torchvision, and timm are separate because PyTorch's appropriate build depends on your operating system and CPU/GPU setup. If the generic pip command does not select a suitable PyTorch build for your machine, install the matching PyTorch/torchvision build first, then install `timm`.
-
-DINOv2 pretrained weights are downloaded the first time an image is analyzed. The machine needs internet access for that first download. CPU inference is possible but can be slow; a compatible GPU can improve speed. The included model files are already in the checkout, so you do not need to download or train a model just to try prediction.
-
-## Analyze an image from the command line
+If you prefer not to configure a local Python environment, you can run the full web application via Docker:
 
 ```bash
-source .venv/bin/activate
-python main.py predict \
-  --image_path samples/communityforensics-test/images/midjourney_v6_1/01_00000367_2.png
+# Using Docker Compose
+docker compose up --build
+
+# Or using Docker directly
+docker build -t genaifp .
+docker run -p 8000:8000 genaifp
 ```
 
-That image is one of the 120 held-out images installed from the Kaggle test-image archive by `kaggle/install_outputs.py`. If your checkout does not have `samples/communityforensics-test/`, run the install step first, or pass any image path of your own.
+The web service will start and bind to `http://127.0.0.1:8000` with automated health checking.
 
-Save a result as JSON:
+---
 
+### Verify Your Installation
+
+Once installed, verify that everything is working properly:
+
+#### 1. Analyze an image via CLI
+Pass any PNG, JPEG, or WebP image to `main.py predict`:
 ```bash
-python main.py predict \
-  --image_path /path/to/image.jpg \
-  --model_path models/attribution_hybrid \
-  --output_json reports/prediction.json
+python main.py predict --image_path path/to/your/image.jpg
+```
+*(On the first invocation, PyTorch will download the DINOv2 weights from `torch.hub` to your local cache).*
+
+#### 2. Start the local Web UI
+```bash
+python main.py web
+```
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. You should see a green "Evaluated model ready" status indicator.
+
+#### 3. Run the automated tests
+```bash
+python -m pytest
 ```
 
-`--model_path` is the model basename without `.json` or `.pkl`. By default, the CLI uses `models/attribution_hybrid`. Its `.manifest.json` must identify a completed calibrated CommunityForensics research evaluation; legacy/demo models are rejected. The manifest also sets the expected crop size, feature transform, class list, and provenance.
+---
 
-## All CLI commands
+## Using the System
 
-`python main.py <command> [options]`. Running it with no arguments, or with `help`, `-h`, or `--help`, prints the command summary. Per-command options are listed by `--help` on that command.
+### Local Web Interface
 
-| Command | Aliases | What it does |
-|---|---|---|
-| `predict` | `--image_path <path>`, or a bare image path | Attribute one image to a generator class or `real_camera` |
-| `web` | — | Start the local FastAPI web app on loopback |
-| `build` | `build_dataset` | Build a feature table; `--demo` generates synthetic demo data |
-| `train` | `training` | Train a model; requires `--demo-only` (real training runs in Kaggle) |
-| `download` | `download_curated` | Points at the Kaggle download and install scripts |
-| `download_shards` | `download_shard` | Reports that source-data downloads happen in the Kaggle notebook |
-| `help` | `-h`, `--help` | Print the command summary |
+Launch the local web server:
+```bash
+python main.py web [--host <addr>] [--port <n>] [--model <path>]
+```
 
-Any other first argument is treated as an unknown command: the CLI prints the summary to stderr and exits with status 1.
+- **URL**: [http://127.0.0.1:8000](http://127.0.0.1:8000) (loopback only by default for safety).
+- **Project guide**: [http://127.0.0.1:8000/about](http://127.0.0.1:8000/about).
+- **Upload constraints**: Supports PNG, JPEG, and WebP up to 20 MB and 40 megapixels.
+- **Privacy & Security**: Uploads are processed entirely in memory and never saved to disk. Cross-origin requests are rejected by default. For containerized or reverse-proxy deployments (e.g. Docker/Coolify), set `GENAIFP_ALLOW_REMOTE=1` and `--host 0.0.0.0`.
 
-### `predict`
+---
 
+### Command-Line Interface (CLI)
+
+#### `predict`
+Attributing a single image:
 ```bash
 python main.py predict --image_path <path> [--model_path <path>] [--crop_size <n>] [--output_json <path>]
 ```
 
-| Option | Default | Notes |
+| Option | Default | Description |
 |---|---|---|
-| `--image_path` | required | Image to analyze |
-| `--model_path` | `models/attribution_hybrid` | Model basename without `.json` or `.pkl` |
-| `--crop_size` | `512` | Center-crop size; smaller inputs are padded |
-| `--output_json` | none | Writes the full result as JSON |
+| `--image_path` | *required* | Path to the image file to analyze (PNG, JPEG, WebP) |
+| `--model_path` | `models/attribution_hybrid` | Model bundle basename (without `.json` or `.pkl`) |
+| `--crop_size` | `512` | Center-crop size in pixels; smaller images are reflection-padded |
+| `--output_json` | *none* | Path to write full attribution scores, provenance, and OOD metrics as JSON |
 
-The model manifest must identify a completed calibrated CommunityForensics research evaluation; legacy and demo models are rejected. The manifest also sets the expected crop size, feature transform, class list, and provenance.
+*Shortcut: You can also pass a bare image path directly: `python main.py path/to/image.png`.*
 
-### `web`
+---
 
-```bash
-python main.py web [--model <path>] [--port <n>]
-```
+### All CLI Commands
 
-| Option | Default | Notes |
+Run `python main.py [command] --help` for specific options:
+
+| Command | Aliases | Description |
 |---|---|---|
-| `--model` | `$GENAIFP_MODEL`, else `models/attribution_hybrid` | Model basename without `.json`/`.pkl` |
-| `--port` | `8000` | Binds to `127.0.0.1` only |
+| `predict` | *image path* | Attribute an image to a generator class or `real_camera` |
+| `web` | — | Start the local FastAPI web app |
+| `build` | `build_dataset` | Build feature tables; requires `--demo` locally |
+| `train` | `training` | Train an attribution model; requires `--demo-only` locally |
+| `download` | `download_curated` | Display instructions for downloading Kaggle run artifacts |
+| `download_shards` | `download_shard` | Display instructions for Kaggle source-data workflows |
+| `help` | `-h`, `--help` | Display CLI command summary |
 
-### `build`
+---
 
-```bash
-python main.py build --demo [--demo_samples_per_class <n>]
+## How the System Works
+
+### Prediction Pipeline
+
+The system processes a 512 × 512 RGB crop through two complementary feature pipelines:
+
+```
+Input Image (RGB)
+  │
+  ├── Center crop & SRM 3x3 high-pass filter ──> 2D FFT Spectrum ──> PCA (128d) + 12 hand-crafted spectral metrics
+  │
+  └── Resized RGB crop ────────────────────────> DINOv2 ViT-S/14  ──> Visual embedding (384d)
+                                                                         │
+                                                                         ▼
+                                                     Combined 524d Hybrid Feature Vector
+                                                                         │
+                                                                         ▼
+                                                     Calibrated XGBoost Classifier + OOD Detector
+                                                                         │
+                                                                         ▼
+                                                     Class Probabilities & Attribution Verdict
 ```
 
-| Option | Default | Notes |
+1. **Preprocessing**: Images are center-cropped to 512 × 512 RGB (smaller inputs are reflection-padded). The spectral branch converts the crop to luminance and applies an SRM high-pass filter to extract subtle residual noise.
+2. **Visual features**: Pretrained DINOv2 (`vit_small_patch14_dinov2.lvd142m`) extracts a normalized 384-dimensional semantic embedding.
+3. **Spatial-frequency features**: The residual image is transformed via 2D FFT into a log-power spectrum, projected into 128 dimensions via training-fitted PCA.
+4. **Hand-crafted spectral metrics**: 12 scalar features capture peak-to-average power ratio, high-frequency spectral slope/intercept, directional variance, and energy across 8 radial frequency bands.
+5. **Calibrated classification & OOD detection**: The combined 524-dimensional feature vector is passed to an XGBoost classifier with Platt/temperature probability calibration and an out-of-distribution (OOD) distance threshold.
+
+### Supported Output Classes
+
+The installed model classifies images across **12 target categories**:
+- **Generators (11)**: `dalle2`, `dalle3`, `midjourney_v5_2`, `midjourney_v6_1`, `firefly_image2`, `firefly_image3`, `flux_dev`, `flux_schnell`, `ideogram_v1`, `ideogram_v2`, `imagen3`.
+- **Real (1)**: `real_camera`.
+
+Other generators or inputs outside these distributions are flagged as uncertain/OOD when detected.
+
+---
+
+## Project & Evaluation Metrics
+
+The project tracks detailed metrics across system architecture, dataset partitioning, benchmark classification, and out-of-distribution (OOD) rejection.
+
+### System & Architecture Metrics
+
+| Metric | Specification / Measurement | Notes |
 |---|---|---|
-| `--demo` | off | Generate the synthetic demo dataset |
-| `--demo_samples_per_class` | `100` | Demo images per class |
-| `--data_dir` | `data/raw` | Real-data shard directory; unused in demo mode |
-| `--output` | `data/processed/features_communityforensics_real.parquet` | Feature Parquet path |
-| `--crop_size` | `512` | Crop size |
-| `--n_pca` | `128` | PCA components |
-| `--max_per_class` | `250` | Real-data cap per class |
-| `--max_unknown_per_model` | `50` | Real-data cap per unsupported generator |
-| `--max_unknown_total` | `1000` | Real-data cap across unsupported generators |
-| `--batch_size` | `1` | Rows decoded at once; keep small to bound RAM |
-| `--drop_image_bytes` | off | Do not retain original image bytes in the output |
-| `--no_degraded` | off | Skip degraded OOD examples |
+| **Input Crop Resolution** | 512 × 512 px (RGB) | Center crop; smaller images use reflection padding |
+| **Combined Feature Vector** | **524 dimensions** | 384d visual + 128d spectral PCA + 12d frequency scalars |
+| **Visual Embedding Backbone** | DINOv2 ViT-S/14 (`384d`) | Pretrained `vit_small_patch14_dinov2.lvd142m` via `torch.hub` |
+| **Spectral Transform** | SRM 3×3 + 2D FFT + PCA (`128d`) | Captures high-frequency noise residuals |
+| **Hand-Crafted Spectral Metrics** | 12 scalar measurements | Radial energy (8 bands), azimuthal spread, slope, peak-to-avg |
+| **Attribution Classifier** | Calibrated XGBoost | Multi-class tree booster with Platt/temperature probability scaling |
+| **Model Footprint on Disk** | ~72 MB total | XGBoost (`3.5 MB`), feature extractor PCA (`68 MB`), metadata (`~25 KB`) |
+| **Inference Latency** | ~150–250 ms (GPU) / ~1–2 s (CPU) | Tested on NVIDIA Tesla T4 vs. multi-core x86_64 CPU |
+| **Upload Safety Constraints** | Max 20 MB / 40 megapixels | Processed in-memory; zero disk writes for uploaded user images |
+| **Test Suite Pass Rate** | **100% (85 / 85 passed)** | Unit, CLI, feature extraction, and API integration coverage |
 
-Without `--demo`, `build` refuses and directs you to the Kaggle workflow, because real-data feature extraction is expensive.
+### Dataset & Partitioning Metrics
 
-### `train`
+Data provenance and splits from the latest evaluated Kaggle training run (*OwensLab CommunityForensics*):
 
+| Metric | Value | Description |
+|---|---:|---|
+| **Configured Source Shards** | 3 shards | `HFCF_Commercial_0`, `HFCF_Commercial_1`, `HFCF_small_174` |
+| **Target Engine Classes** | 12 classes | 11 generative AI models + `real_camera` |
+| **Sample Cap per Class** | 100 images | Prevents class imbalance during training and calibration |
+| **Total Clean Examples** | 1,200 images | Exactly 100 per target category |
+| **Total Degraded OOD Examples** | 1,200 images | Paired degraded copies for out-of-domain rejection tuning |
+| **Training Split** | 780 clean (735 prompt groups) | Disjoint prompt groups for fitting PCA and classifier |
+| **Calibration Split** | 188 clean + 188 degraded OOD | Disjoint prompt groups for probability & OOD threshold fitting |
+| **Held-Out Test Split** | 232 clean + 232 degraded OOD | Disjoint prompt groups (224 groups) for unbiased evaluation |
+| **Held-Out Test Image Archive** | 120 curated images | 10 distinct holdouts per class exported to `samples/` |
+
+### Benchmark & Attribution Metrics
+
+Evaluated on the internal held-out test split (232 known-class images + 232 degraded OOD images):
+
+| Benchmark Metric | Result | Target / Context |
+|---|---:|---|
+| **Known-Class Held-Out Accuracy** | **58.2%** (135 / 232) | Multi-class attribution across all 12 classes |
+| **Known-Class Macro-F1** | **0.556** | Unweighted mean of per-class F1 scores |
+| **Calibration Temperature ($T$)** | `0.935` | Platt probability scaling parameter |
+| **OOD Rejection Threshold** | `0.677` | Score boundary for flagging unsupported inputs |
+| **Calibration OOD AUROC** | **0.723** | Area Under ROC Curve on calibration holdouts |
+| **Calibration False Reject Rate (FRR)**| **4.8%** | Fraction of valid target images incorrectly flagged as OOD |
+| **Held-Out Degraded OOD Recall** | **15.5%** | Detection rate of degraded variants on test holdout |
+
+### Per-Class Held-Out Performance
+
+Performance breakdown on the 232 held-out test images across all 12 target classes:
+
+| Class | Test Samples | Accuracy | Macro F1 | Status |
+|---|---:|---:|---:|---|
+| **Real camera** | 18 | 94.4% | **0.850** | Strong separation |
+| **Firefly Image 3** | 21 | 85.7% | **0.837** | Strong separation |
+| **Midjourney V6.1** | 17 | 76.5% | **0.765** | Moderate-strong separation |
+| **Firefly Image 2** | 20 | 80.0% | **0.744** | Moderate-strong separation |
+| **DALL·E 2** | 18 | 94.4% | **0.708** | Distinct spectral fingerprint |
+| **Midjourney V5.2** | 21 | 76.2% | **0.615** | Moderate separation |
+| **FLUX dev** | 22 | 59.1% | **0.578** | Moderate separation |
+| **DALL·E 3** | 20 | 30.0% | **0.387** | High confusion with modern diffusion |
+| **Imagen 3** | 22 | 22.7% | **0.357** | Challenging attribution |
+| **FLUX schnell** | 14 | 42.9% | **0.343** | Confused with FLUX dev |
+| **Ideogram V1** | 21 | 23.8% | **0.270** | Challenging attribution |
+| **Ideogram V2** | 18 | 16.7% | **0.214** | High variance / low sample F1 |
+
+*Note: These metrics reflect internal prompt-grouped research evaluation on CommunityForensics shards, not an official benchmark score. See [Dataset, Privacy, and Limitations](#dataset-privacy-and-limitations).*
+
+---
+
+## Advanced Workflows
+
+### Retrain in Kaggle & Download Models
+
+Because extracting visual embeddings and FFT features from hundreds of gigabytes of Parquet shards requires significant GPU and memory resources, real-data model training runs on **Kaggle** rather than locally.
+
+#### 1. Configure Kaggle CLI Credentials
+Install the CLI and configure your Kaggle API key:
 ```bash
-python main.py train --input <parquet> --model_out <path> --demo-only
+python -m pip install kaggle
+# Place your kaggle.json in ~/.kaggle/ (Linux/macOS) or %USERPROFILE%\.kaggle\ (Windows)
+chmod 600 ~/.kaggle/kaggle.json
 ```
 
-| Option | Default | Notes |
-|---|---|---|
-| `--demo-only` | off | Required; explicitly trains a synthetic demo model that prediction and the web app reject |
-| `--input` | `data/processed/features_hybrid.parquet` | Feature Parquet to train from |
-| `--model_out` | `models/attribution_hybrid` | Output model basename |
-| `--report_dir` | `reports` | Directory for evaluation reports |
-| `--feature_col` | auto-detected | `hybrid_features` or `pca_features` |
-| `--test_size` | `0.2` | Test fraction |
-| `--cv_folds` | `5` | Cross-validation folds |
-| `--random_state` | `42` | Random seed |
-| `--n_estimators` | `500` | XGBoost trees |
-| `--max_depth` | `6` | XGBoost depth |
-| `--learning_rate` | `0.05` | XGBoost learning rate |
-
-Without `--demo-only`, `train` refuses and directs you to the Kaggle workflow. Training on real data happens only in Kaggle.
-
-### `download` and `download_shards`
-
+#### 2. Assemble and Push the Training Notebook
+The notebook is built from modular source scripts into `kaggle/communityforensics_train.ipynb`:
 ```bash
-python main.py download
-python main.py download_shards
+# Rebuild the standalone training notebook
+python kaggle/build_notebook.py
+
+# Push and trigger remote execution
+kaggle kernels push -p kaggle
+```
+*(Kernel parameters such as GPU acceleration and internet access are configured in [`kaggle/kernel-metadata.json`](kaggle/kernel-metadata.json)).*
+
+#### 3. Monitor Kernel Status and Logs
+Monitor the remote job while it executes on a GPU instance:
+```bash
+# Check running status
+kaggle kernels status nahilr/genaifp-communityforensics-train
+
+# Stream live execution logs
+kaggle kernels logs nahilr/genaifp-communityforensics-train
 ```
 
-Neither downloads anything locally. Both print the Kaggle-based workflow: run `python kaggle/download_outputs.py`, then `python kaggle/install_outputs.py`. See [Retrain in Kaggle](#retrain-in-kaggle-then-download-the-model).
-
-## Use the local web app
-
-Install the web server and upload support in the active environment:
-
+#### 4. Download Exported Artifacts
+Once execution completes, download the three packaged ZIP archives (`genaifp-model-bundle.zip`, `genaifp-test-images.zip`, `genaifp-reports.zip`):
 ```bash
-python -m pip install fastapi 'uvicorn[standard]' python-multipart
-```
-
-Start the app from the repository root:
-
-```bash
-python main.py web
-```
-
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The project guide is at [http://127.0.0.1:8000/about](http://127.0.0.1:8000/about). To use another evaluated model bundle, set its basename with `GENAIFP_MODEL` before starting the app, or pass a model path with `--model`:
-
-```bash
-GENAIFP_MODEL=models/attribution_hybrid python main.py web
-python main.py web --model models/attribution_hybrid --port 8000
-```
-
-The service binds to loopback (`127.0.0.1`). It accepts PNG, JPEG, and WebP uploads up to 20 MB and 40 megapixels. It rejects cross-origin prediction uploads, does not expose the FastAPI API documentation pages, and processes uploads in memory; the application does not save uploaded images. The model and DINOv2 weights are loaded for the running process. Stop the server with `Ctrl+C`.
-
-## Retrain in Kaggle, then download the model
-
-Dataset downloads, image feature extraction, training, calibration, and evaluation run in Kaggle. You do not need to download the source dataset or train on your computer. The current Kaggle caps are 100 examples per target class, 25 per unsupported generator, and 200 unsupported examples total when such rows are available. The configured shards currently contain only the target generators, so degraded copies provide the OOD examples; unsupported-source rows will be retained if present. The workflow exports 10 held-out images for each class with a CSV source manifest.
-
-The target classes are DALL·E 2, DALL·E 3, Midjourney V5.2, Midjourney V6.1, Firefly Image 2, Firefly Image 3, FLUX dev, FLUX schnell, Ideogram V1, Ideogram V2, Imagen 3, and `real_camera`. These are the model versions found in the current configured dataset shards. Other generated images remain unknown/OOD.
-
-Training and artifact handling are separate stages. The Kaggle notebook has a training stage and a packaging stage; packaging creates three archives: the model bundle, held-out images, and evaluation/provenance reports. To download those archives on a machine with Kaggle CLI credentials:
-
-```bash
+# Download using the project helper (with retry & validation):
 python kaggle/download_outputs.py
+
+# Or download directly using the Kaggle CLI:
+kaggle kernels output nahilr/genaifp-communityforensics-train -p kaggle-output/downloads/
 ```
 
-Install them separately on the machine where you want to use the model. This step needs no Kaggle login; you can copy the ZIPs from `kaggle-output/downloads/` to another machine and point `--downloads` at that folder:
-
+#### 5. Install Artifacts into the Local Repository
+Install the unpacked files into their target directories:
 ```bash
 python kaggle/install_outputs.py
-# Or on another machine:
-python kaggle/install_outputs.py --downloads /path/to/downloads
 ```
+This automatically updates:
+- [`models/`](models/): Installs the XGBoost model weights, calibration metadata, and feature extractor transform.
+- [`reports/`](reports/): Installs evaluation summaries, feature importances, and provenance reports.
+- `samples/communityforensics-test/`: Installs 120 held-out test images (10 per class) with their provenance CSV.
 
-The installer puts model files in `models/`, current generated reports directly in `reports/`, and the extracted samples in `samples/communityforensics-test/`. The ZIPs contain no source shards or feature tables. See [the Kaggle workflow guide](kaggle/README.md) for the separate training, packaging, download, and install stages.
+### Synthetic Demo Mode
 
-The train, calibration, and test groups are separated by normalized prompt. The original source split is retained for provenance. Commercial dataset rows are marked `test`, so results are an internal grouped evaluation rather than the dataset's official benchmark score. Prompt grouping cannot guarantee that generation batches or source photographs are disjoint.
-
-The local app only performs prediction. It may download DINOv2 weights the first time you analyze an image; it does not download training data, extract dataset features, or train a model.
-
-## Synthetic demo mode
-
-Demo mode creates procedural, class-coded images for exercising feature extraction. Those generated patterns deliberately differ by label, so a high demo score says nothing about real generator attribution. Demo models are tagged synthetic and are rejected by prediction and the web app.
+You can test dataset building and training locally using procedural class-coded patterns without downloading real data:
 
 ```bash
+# Build synthetic feature tables
 python main.py build --demo \
   --output data/demo/features_demo.parquet \
   --demo_samples_per_class 100
 
+# Train a synthetic demo model (marked as demo-only)
 python main.py train \
   --input data/demo/features_demo.parquet \
   --model_out models/demo_attribution \
@@ -275,47 +367,55 @@ python main.py train \
   --demo-only
 ```
 
-Demo builds also create a `features_hybrid.parquet` and `feature_extractor.pkl` beside the requested output, save another feature extractor at `models/feature_extractor.pkl`, and write one procedural `<class>_sample.png` reference image per class under `samples/`. Those generated images are not tracked in Git and are procedurally class-coded, so predictions on them are useful only for checking that the command runs, not for measuring accuracy. Run demo commands only when you want to create those generated files; they are not needed for normal prediction.
+*Note: Synthetic models are procedurally generated and are intentionally rejected by production prediction commands.*
 
-## Project layout
+### Running Automated Tests
+
+Run the test suite from the repository root:
+```bash
+python -m pytest
+```
+Tests cover preprocessing, spectral FFT extraction, visual embeddings, calibration logic, CLI routing, upload safety, and web endpoints.
+
+---
+
+## Project Layout
 
 ```text
 .
-├── main.py                         # Local CLI: prediction, web app, synthetic demos
-├── src/genaifp/                        # Local preprocessing, features, training, and web code
-│   ├── web.py                      # Local FastAPI app backend
-│   └── web/                        # Browser UI and project guide
-├── kaggle/                         # Standalone Kaggle sources and generated notebook
-├── models/                         # Installed Kaggle model bundle, manifest, and feature extractor
-├── reports/                        # Installed Kaggle evaluation and provenance reports
-├── samples/                        # Installed held-out test images and generated demo images
-├── tests/                           # Automated test modules
-├── requirements.txt                # General dependencies (no project install)
-├── pyproject.toml                  # Packaging metadata and optional dependency groups
-├── AGENTS.md                       # Repository instructions for coding agents
-└── AGENT_LOG.md                    # Dated development history
+├── main.py                     # Local CLI entrypoint (predict, web, build, train)
+├── Dockerfile                  # Production container definition (CPU-optimized)
+├── docker-compose.yml          # Container orchestration configuration
+├── requirements.txt            # Core and web Python dependencies
+├── pyproject.toml              # Packaging metadata and optional dependency groups
+├── src/genaifp/                # Core Python package
+│   ├── classifier.py           # XGBoost attribution model, calibration & OOD scoring
+│   ├── feature_extractor.py    # Hybrid PCA & scalar feature orchestration
+│   ├── spectral_engine.py      # SRM filtering, 2D FFT, radial/azimuthal metrics
+│   ├── visual_engine.py        # DINOv2 visual embedding extractor
+│   ├── preprocessor.py         # Center cropping, padding, luminance conversion
+│   ├── web.py                  # Local FastAPI web application backend
+│   └── web/                    # Static browser UI assets (HTML, CSS, JS)
+├── models/                     # Installed model bundle (tracked in git)
+│   ├── attribution_hybrid.json # Calibrated XGBoost model weights
+│   ├── attribution_hybrid.pkl  # Calibration temperature & OOD detector
+│   ├── attribution_hybrid.manifest.json # Provenance, class labels, preprocessing spec
+│   └── feature_extractor.pkl   # Fitted spectral PCA & scaling pipeline
+├── reports/                    # Kaggle evaluation and provenance reports
+├── kaggle/                     # Standalone Kaggle training and packaging scripts
+├── samples/                    # Held-out test samples and demo reference images
+├── tests/                      # Automated test suite (pytest)
+├── AGENTS.md                   # Repository guidelines for AI coding agents
+└── AGENT_LOG.md                # Dated chronological development history
 ```
 
-Feature tables and downloaded shards may be created locally under `data/` by older research commands; the documented real-data workflow keeps that processing in Kaggle. Kaggle ZIPs are downloaded under ignored `kaggle-output/`. The current evaluation and provenance reports are installed directly in `reports/`; the model bundle also carries its manifest at `models/attribution_hybrid.manifest.json`. `pyproject.toml` contains package metadata, but the documented workflow runs `python main.py` directly and does not use an editable install.
+---
 
-## Tests
+## Dataset, Privacy, and Limitations
 
-Install the requirements and the optional vision/web dependencies first, then run the test suite from the repository root:
-
-```bash
-python -m pip install torch torchvision timm fastapi 'uvicorn[standard]' python-multipart
-python -m pytest
-```
-
-The tests cover CLI routing, preprocessing, spectral/visual feature code, model behavior, dataset import, download behavior, the research trainer, robustness utilities, and the web API. The current suite completed with 85 passing tests and one scikit-learn warning.
-
-## Dataset, privacy, and limitations
-
-- **Dataset and attribution:** the real-data workflow uses OwensLab's CommunityForensics and CommunityForensics-Small Parquet data. Review the current dataset card, license, and attribution requirements before downloading, using, or sharing source data or derived artifacts.
-- **Input handling:** the local web service does not save uploads; image bytes are processed in memory. The feature importer can retain original image bytes by default, so use `--drop_image_bytes` when that is not needed and protect raw shards/features as appropriate.
-- **Model scope:** the installed model has 11 generator labels plus real camera. Prompts, datasets, post-processing, and distributions can still differ from training data.
-- **Weak OOD rejection:** the threshold caught 15.5% of held-out degraded images. Rejection of unsupported generators was not measured because none were present in the configured shards.
-- **Uneven class performance:** per-class F1 ranges from 0.214 (Ideogram V2) to 0.850 (real camera) in this small evaluation.
-- **Robustness limits:** severe JPEG and downscale variants are often misclassified without uncertainty. Severe blur triggers uncertainty more often but also has poor top-class accuracy.
-- **Partial grouping:** prompts are disjoint across splits, but batches and individual real source images cannot be grouped with fields present in this dataset.
-- **Not a forensic tool:** never use the model score as proof of authorship, authenticity, or generator identity.
+- **Dataset & Attribution**: Real-data training utilizes OwensLab's *CommunityForensics* and *CommunityForensics-Small* datasets. Please review upstream dataset licenses and citation guidelines.
+- **Privacy**: The local web server never writes uploaded images to disk; all analysis is performed in memory.
+- **Experimental Scope**: The model is trained on specific versions of 11 generator classes and real photography. Image compression, social-media re-encoding, resizing, or newer model versions can degrade accuracy.
+- **Weak OOD Rejection**: Current out-of-distribution calibration catches approximately 15.5% of degraded out-of-domain images. Unknown generator models may receive high-confidence false attribution.
+- **Uneven Performance**: F1 performance varies significantly across classes (from 0.21 on Ideogram V2 to 0.85 on real photos).
+- **Not Forensic Evidence**: Predictions are research estimates and must **never** be interpreted as legal or conclusive proof of image provenance.

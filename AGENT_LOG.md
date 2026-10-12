@@ -579,3 +579,73 @@ The hybrid architecture eliminates the fundamental vulnerability of spectral met
 - `test_predict_sample_image` and `test_direct_image_path_shortcut` were guarded by `if sample.exists()` against `samples/midjourney_v6_sample.png`, which no longer exists in this project. Both tests therefore collected and reported as passing while asserting nothing. They now generate an image in `tmp_path`, so the predict command, the direct-path shortcut, and the JSON output shape are actually exercised.
 - Making those tests run surfaced a `RuntimeWarning: invalid value encountered in divide` from the directional-variance calculation, which divided by a zero row sum and then discarded the result with `np.where`. Replaced it with `np.divide(..., out=zeros, where=A_sum > 0)`, which avoids the invalid values instead of computing and masking them.
 - Validation: both repaired tests run and pass in about 9 seconds; the warning no longer appears; the full suite passes (85 tests, 1 scikit-learn warning). Predicted values for a held-out Midjourney V6.1 image are unchanged by the numerical fix (`confidence` 0.9926583170890808, PASR 1.3041303157806396), confirming it is behavior-preserving.
+
+## 2026-10-12 — Package standalone Gradio Space for Hugging Face deployment
+
+- Installed the official Hugging Face CLI (`hf`) and configured the `huggingface-spaces` agent skill.
+- Created a standalone deployment package under `space/` for hosting GenAI Fingerprint on Hugging Face Spaces with ZeroGPU (`--flavor zero-a10g`) and CPU compatibility.
+- Implemented `space/app.py` featuring interactive image upload, calibrated class probability distributions, Out-of-Distribution (OOD) rejection warning badges, detailed forensic metrics JSON inspector, and 12 curated held-out test examples. Added `mcp_server=True` for agentic tool use.
+- Assembled Space frontmatter YAML in `space/README.md`, isolated `space/requirements.txt` (excluding platform-managed packages), packaged source modules under `space/src/`, and installed calibrated CommunityForensics model weights under `space/models/`.
+- Validation: smoke-tested `space/app.py` end-to-end with the local Python environment; successfully attributed a test image to `real_camera` with clean execution and zero Gradio 6.x deprecation warnings. No Kaggle run performed.
+
+## 2026-10-12 — Create and push Hugging Face Space repository
+
+- Authenticated the `hf` CLI with the user's Hugging Face credentials (`nahilr`).
+- Created the public Hugging Face Space repository at `nahilr/genai-fingerprint`.
+- Uploaded all 36 application files, model weights, and curated samples from `space/` directly to the Space via `hf upload`.
+- Submitted an official Hugging Face GPU Community Grant application on the Space discussion board (`Apply for a GPU community grant: Academic project`) to attach ZeroGPU hardware at zero cost.
+- Validation: Space creation confirmed (`repo_id=nahilr/genai-fingerprint`); upload completed successfully with 62.1 MB transferred (commit `57405387d736d73877178f0f5f9bdfd4ea5ae7de`); discussion #1 created and verified.
+
+## 2026-10-12 — Add container and Coolify deployment support
+
+- Added a production-ready `Dockerfile`, `docker-compose.yml`, and `.dockerignore` optimized for Coolify self-hosting. Utilizes CPU-only PyTorch wheels to avoid multi-gigabyte CUDA bloat, and includes automated healthcheck polling on `/api/health`.
+- Updated `src/genaifp/web.py` to support remote reverse proxy deployments via `GENAIFP_ALLOW_REMOTE=1`, permitting external hostnames and cross-origin termination behind Traefik/Nginx. Added `--host` flag and `HOST`/`PORT` environment variable fallbacks to `genaifp.web:main`.
+- Documented `--host` in CLI help and `README.md`.
+- Validation: full local test suite passed (85 tests, 1 scikit-learn warning). No Kaggle run performed.
+
+## 2026-10-12 — Remove Hugging Face Space deployment and code
+
+- Deleted the remote Hugging Face Space repository `nahilr/genai-fingerprint` via `hf repos delete`.
+- Removed the local `space/` deployment bundle directory containing the Gradio Space assets.
+- Validation: verified deletion via `hf repos list --type space` (returned 0 repos); confirmed removal of local `space/` directory; `git status` clean of untracked space artifacts. No Kaggle run performed.
+
+## 2026-10-12 — Add Web UI dependencies to core requirements
+
+- Added `fastapi>=0.115.0`, `uvicorn[standard]>=0.30.0`, and `python-multipart>=0.0.9` directly to `requirements.txt` and `pyproject.toml` base dependencies.
+- Simplified `Dockerfile` application dependencies install step by avoiding redundant web package specifications.
+- Updated `README.md` web application quickstart and test execution guides to reflect that web dependencies are pre-installed via `requirements.txt`.
+- Validation: installed `requirements.txt` into `.venv`; ran full test suite with all 85 passing tests. No Kaggle run performed.
+
+## 2026-10-12 — Restructure README for local setup clarity
+
+- Reorganized `README.md` to prioritize clean-checkout local onboarding at the top before deep benchmark analysis and theory.
+- Added explicit prerequisites (Python 3.10+, Linux graphics libraries `libgl1`/`libglib2.0-0`, first-run internet requirement for DINOv2 weights).
+- Structured setup instructions into distinct copy-paste paths: Option A (Python venv with CPU vs. CUDA PyTorch choices) and Option B (Docker & Docker Compose container launch).
+- Added an immediate 3-step verification guide (CLI prediction smoke test, local web server check, and pytest run).
+- Clarified that `models/attribution_hybrid` is bundled in git, enabling instant inference without running Kaggle workflows or dataset downloads.
+- Improved section hierarchy, table of contents, and visual ASCII architecture diagram.
+- Validation: verified markdown anchors and file links. Ran pytest (85 passing tests). No Kaggle run performed.
+
+## 2026-10-12 — Document Kaggle CLI commands in README
+
+- Added comprehensive Kaggle CLI instructions to `README.md`: API credential setup, `kaggle kernels push` notebook deployment, status checks with `kaggle kernels status`, live streaming with `kaggle kernels logs`, and artifact fetching with `kaggle kernels output`.
+- Validation: verified command syntax against `kaggle/README.md` and `kaggle/download_outputs.py`. No Kaggle run performed.
+
+## 2026-10-12 — Add comprehensive project & evaluation metrics to README
+
+- Expanded the evaluation section in `README.md` into a structured "Project & Evaluation Metrics" section.
+- Added **System & Architecture Metrics** table (feature dimensions, model footprint, latency, upload safety caps, test suite pass rate).
+- Added **Dataset & Partitioning Metrics** table (shards, caps, clean/degraded sample counts, train/calibration/test splits, prompt group counts).
+- Added **Benchmark & Attribution Metrics** table (known accuracy, macro F1, calibration temperature, OOD threshold, AUROC, FRR, OOD recall).
+- Enhanced **Per-Class Performance** table with both per-class Accuracy and Macro F1 columns.
+- Validation: cross-checked all values against `reports/evaluation_summary.json` and `reports/import_summary.json`. No Kaggle run performed.
+
+## 2026-10-12 — Fully integrate complete technical report into Web About page
+
+- Expanded `src/genaifp/web/about.html` into a complete, exhaustive technical reference document inside the web interface.
+- Added ASCII pipeline diagram and formal mathematical equations for ITU-R BT.601 luminance conversion, 3×3 SRM high-pass kernel matrix, 2D FFT log-power spectrum, and Platt temperature probability scaling.
+- Added complete **12-Class Reference Table** documenting engine families, generator architectures, and forensic characteristics (GLIDE artifacts, flow matching, natural CFA sensor noise).
+- Added **Dataset Split Counts Table** detailing clean vs. degraded sample counts, prompt group counts, and provenance for train, calibration, and test partitions.
+- Added full **Per-Class Benchmark Performance Table** showing test sample sizes, accuracy, macro-F1, and separation status across all 12 classes.
+- Fixed layout and CSS formatting issues on `/about`: converted `.process-list li` to child selector `.process-list > li` to prevent breaking nested bullet lists; removed all inline `style` attributes to strictly comply with `Content-Security-Policy: style-src 'self'`; added `.num-col` right-alignment for tabular statistics; styled `.badge` pill chips for class separation statuses; and balanced the ASCII pipeline architecture diagram to prevent horizontal overflow.
+- Validation: ran `pytest tests/test_web.py` (7 passed). No Kaggle run performed.
