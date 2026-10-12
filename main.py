@@ -3,7 +3,7 @@
 
 Usage:
     python main.py <command> [options]
-    python main.py samples/midjourney_v6_sample.png
+    python main.py <path_to_image>
     python main.py --image_path <path_to_image>
 """
 
@@ -171,7 +171,7 @@ def predict_main(args=None):
 
     A = azimuthal.astype(np.float64)
     A_sum = A.sum(axis=1, keepdims=True)
-    A_norm = np.where(A_sum > 0, A / A_sum, 0)
+    A_norm = np.divide(A, A_sum, out=np.zeros_like(A), where=A_sum > 0)
     dir_var = float(np.mean(np.var(A_norm, axis=0)))
 
     result["spectral_metrics"] = {
@@ -655,24 +655,37 @@ Usage:
 
 Available Commands:
     predict          Identify which AI engine synthesized an image
-                     Options: --image_path <path> [--model_path <path>] [--output_json <path>]
-
-    train            Train a synthetic demo model only; real-data training runs in Kaggle
-                     Options: --input <parquet> [--demo-only]
-
-    build            Build a synthetic demo dataset; real-data feature extraction runs in Kaggle
-                     Options: --demo [--demo_samples_per_class <n>]
-
-    download         Use kaggle/download_outputs.py, then kaggle/install_outputs.py
-
-    download_shards  Source data downloads are handled by the Kaggle notebook
+                     Options: --image_path <path> [--model_path <path>] [--crop_size <n>]
+                              [--output_json <path>]
 
     web              Start the local web app (install fastapi, uvicorn, python-multipart)
+                     Options: [--model <path>] [--port <n>]
+
+    build            Build a synthetic demo dataset; real-data feature extraction runs in Kaggle
+                     Aliases: build_dataset
+                     Options: --demo [--demo_samples_per_class <n>] [--output <parquet>]
+                              [--crop_size <n>] [--n_pca <n>] [--batch_size <n>]
+                              [--drop_image_bytes] [--no_degraded]
+
+    train            Train a synthetic demo model only; real-data training runs in Kaggle
+                     Aliases: training
+                     Options: --input <parquet> --demo-only [--model_out <path>]
+                              [--report_dir <dir>] [--feature_col <name>] [--test_size <f>]
+                              [--cv_folds <n>] [--random_state <n>] [--n_estimators <n>]
+                              [--max_depth <n>] [--learning_rate <f>]
+
+    download         Use kaggle/download_outputs.py, then kaggle/install_outputs.py
+                     Aliases: download_curated
+
+    download_shards  Source data downloads are handled by the Kaggle notebook
+                     Aliases: download_shard
+
+    help             Print this summary (also -h or --help)
 
 Examples:
-    python main.py samples/midjourney_v6_sample.png
-    python main.py --image_path samples/midjourney_v6_sample.png
-    python main.py predict --image_path samples/midjourney_v6_sample.png
+    python main.py <path_to_image>
+    python main.py --image_path <path_to_image>
+    python main.py predict --image_path <path_to_image>
     python main.py train --input data/processed/features_hybrid.parquet --model_out models/demo_attribution --demo-only
     python main.py build --demo
     python kaggle/download_outputs.py

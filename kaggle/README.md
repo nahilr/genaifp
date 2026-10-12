@@ -49,10 +49,12 @@ Run the installer wherever the project checkout and ZIP files are available:
 python kaggle/install_outputs.py
 ```
 
-Installation does not require Kaggle credentials or a Kaggle session. Copy the ZIPs to another machine and use `--downloads /path/to/downloads`, or provide `--model-archive`, `--image-archive`, and `--report-archive` individually. By default, files go directly into `models/`, `reports/`, and `samples/communityforensics-test/`; installation removes the old `reports/real_data/` experiment folder.
+Installation does not require Kaggle credentials or a Kaggle session. Copy the ZIPs to another machine and use `--downloads /path/to/downloads`, or provide `--model-archive`, `--image-archive`, and `--report-archive` individually. By default, files go directly into `models/`, `reports/`, and `samples/communityforensics-test/`; installation replaces the image folder on every run and removes a legacy `reports/real_data/` folder if one exists.
 
 The local app does no dataset processing or training. Prediction uses the installed model and may download DINOv2 weights on its first run. Start the analyzer with `python main.py web`.
 
 ## Current remote status
 
-Kaggle version 6 completed successfully on a Tesla T4 and produced the trained model, evaluation summary, feature importance, import summary, environment details, and held-out images. Its earlier packaging step exported only the model and image ZIPs. The current workflow adds the reports archive and separates training, packaging, downloading, and installation; run the updated Kaggle notebook to generate the new three-archive output set. Versions 3–5 were earlier attempts that exposed label, OOD sample, and output-check issues; version 6 includes those corrections.
+The latest Kaggle run completed successfully on a Tesla T4 and exported all three archives: the model bundle, the 120 held-out images, and the generated reports. Those ZIPs are downloaded in `kaggle-output/downloads/` and installed in `models/`, `reports/`, and `samples/communityforensics-test/`.
+
+Earlier revisions are kept for context: versions 3–5 were attempts that exposed Midjourney label, OOD sample, and output-folder check issues, and version 6 fixed those while exporting only the model and image ZIPs. The current workflow adds the reports archive and separates training, packaging, downloading, and installation. Re-run `kaggle kernels push -p kaggle` after changing Kaggle sources, then re-run the download and install stages.

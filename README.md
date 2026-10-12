@@ -11,9 +11,9 @@ GenAI Fingerprint (GenAIFP) is a local research prototype that estimates whether
 - [Quick start: use the included model](#quick-start-use-the-included-model)
 - [Install from a clean checkout](#install-from-a-clean-checkout)
 - [Analyze an image from the command line](#analyze-an-image-from-the-command-line)
+- [All CLI commands](#all-cli-commands)
 - [Use the local web app](#use-the-local-web-app)
 - [Retrain in Kaggle, then download the model](#retrain-in-kaggle-then-download-the-model)
-- [Run training in Kaggle](#retrain-in-kaggle-then-download-the-model)
 - [Synthetic demo mode](#synthetic-demo-mode)
 - [Project layout](#project-layout)
 - [Tests](#tests)
@@ -21,9 +21,9 @@ GenAI Fingerprint (GenAIFP) is a local research prototype that estimates whether
 
 ## Current state
 
-The workspace contains the successful Kaggle model bundle in `models/`, 120 labeled held-out images in `samples/communityforensics-test/`, and three downloaded ZIP files in the ignored `kaggle-output/downloads/` folder. Raw source shards and generated feature tables remain in Kaggle and are not downloaded locally. The reports archive from the new workflow is installed directly in `reports/`.
+The workspace contains the installed Kaggle model bundle in `models/`, the Kaggle-generated evaluation and provenance reports in `reports/`, 120 labeled held-out images in `samples/communityforensics-test/`, and the three downloaded ZIP archives in the ignored `kaggle-output/downloads/` folder. Raw source shards and generated feature tables remain in Kaggle and are not downloaded locally.
 
-| Internal grouped evaluation | Kaggle version 6 result |
+| Internal grouped evaluation | Latest Kaggle run result |
 |---|---:|
 | Known-class held-out accuracy | 58.2% (232 examples) |
 | Known-class macro-F1 | 0.556 |
@@ -71,9 +71,9 @@ The installed Kaggle model has 12 labels: `dalle2`, `dalle3`, `midjourney_v5_2`,
 
 In Kaggle, the CommunityForensics workflow reads image bytes and source metadata from Parquet shards, selects capped samples, removes exact duplicate encoded images, creates prompt-based grouping IDs, computes features, records source provenance, and adds one degraded copy for each retained known-class image. It uses prompt-group-disjoint train, calibration, and test partitions, fits scaling/PCA on training groups, calibrates probabilities and OOD rejection on calibration groups, and reports internal held-out results. The dataset has no generation-batch ID or unique real source-image ID, so those relationships cannot be kept disjoint.
 
-For the completed version 6 run, the 12 target classes supplied 1,200 original examples in total, capped at 100 per class. Those examples were divided into 780 training, 188 calibration, and 232 test examples. Their degraded copies supplied 188 calibration OOD examples and 232 test OOD examples. The prompt-group counts were 735 training, 178 calibration, and 224 test. No unsupported-generator examples were found in the configured shards.
+For the latest completed run, the 12 target classes supplied 1,200 original examples in total, capped at 100 per class. Those examples were divided into 780 training, 188 calibration, and 232 test examples. Their degraded copies supplied 188 calibration OOD examples and 232 test OOD examples. The prompt-group counts were 735 training, 178 calibration, and 224 test. No unsupported-generator examples were found in the configured shards.
 
-The source split is kept in the manifest for provenance: 1,100 selected generator rows were marked `test` upstream and 100 real-camera rows were marked `train`. The internal partitions are built by prompt groups across those source rows; they do not reproduce the dataset's official benchmark split. The Kaggle output includes the model bundle and a separate archive of 120 held-out images, 10 for each target class.
+The source split is kept in the manifest for provenance: 1,100 selected generator rows were marked `test` upstream and 100 real-camera rows were marked `train`. The internal partitions are built by prompt groups across those source rows; they do not reproduce the dataset's official benchmark split. The Kaggle run exports three archives: the model bundle, a set of 120 held-out images with 10 for each target class, and the generated evaluation and provenance reports.
 
 ## Quick start: use the included model
 
@@ -97,10 +97,11 @@ DINOv2 pretrained weights are downloaded the first time an image is analyzed. Th
 
 ```bash
 source .venv/bin/activate
-python main.py predict --image_path samples/midjourney_v6_sample.png
+python main.py predict \
+  --image_path samples/communityforensics-test/images/midjourney_v6_1/01_00000367_2.png
 ```
 
-The checked-in `samples/*_sample.png` images are procedural, class-coded examples made by the demo generator. They are useful for checking that the command runs, but predictions on them are not a meaningful accuracy test.
+That image is one of the 120 held-out images installed from the Kaggle test-image archive by `kaggle/install_outputs.py`. If your checkout does not have `samples/communityforensics-test/`, run the install step first, or pass any image path of your own.
 
 Save a result as JSON:
 
@@ -113,14 +114,101 @@ python main.py predict \
 
 `--model_path` is the model basename without `.json` or `.pkl`. By default, the CLI uses `models/attribution_hybrid`. Its `.manifest.json` must identify a completed calibrated CommunityForensics research evaluation; legacy/demo models are rejected. The manifest also sets the expected crop size, feature transform, class list, and provenance.
 
-Useful CLI commands:
+## All CLI commands
+
+`python main.py <command> [options]`. Running it with no arguments, or with `help`, `-h`, or `--help`, prints the command summary. Per-command options are listed by `--help` on that command.
+
+| Command | Aliases | What it does |
+|---|---|---|
+| `predict` | `--image_path <path>`, or a bare image path | Attribute one image to a generator class or `real_camera` |
+| `web` | — | Start the local FastAPI web app on loopback |
+| `build` | `build_dataset` | Build a feature table; `--demo` generates synthetic demo data |
+| `train` | `training` | Train a model; requires `--demo-only` (real training runs in Kaggle) |
+| `download` | `download_curated` | Points at the Kaggle download and install scripts |
+| `download_shards` | `download_shard` | Reports that source-data downloads happen in the Kaggle notebook |
+| `help` | `-h`, `--help` | Print the command summary |
+
+Any other first argument is treated as an unknown command: the CLI prints the summary to stderr and exits with status 1.
+
+### `predict`
 
 ```bash
-python main.py --help
-python main.py build --help
-python main.py train --help
-python main.py download_shards --help
+python main.py predict --image_path <path> [--model_path <path>] [--crop_size <n>] [--output_json <path>]
 ```
+
+| Option | Default | Notes |
+|---|---|---|
+| `--image_path` | required | Image to analyze |
+| `--model_path` | `models/attribution_hybrid` | Model basename without `.json` or `.pkl` |
+| `--crop_size` | `512` | Center-crop size; smaller inputs are padded |
+| `--output_json` | none | Writes the full result as JSON |
+
+The model manifest must identify a completed calibrated CommunityForensics research evaluation; legacy and demo models are rejected. The manifest also sets the expected crop size, feature transform, class list, and provenance.
+
+### `web`
+
+```bash
+python main.py web [--model <path>] [--port <n>]
+```
+
+| Option | Default | Notes |
+|---|---|---|
+| `--model` | `$GENAIFP_MODEL`, else `models/attribution_hybrid` | Model basename without `.json`/`.pkl` |
+| `--port` | `8000` | Binds to `127.0.0.1` only |
+
+### `build`
+
+```bash
+python main.py build --demo [--demo_samples_per_class <n>]
+```
+
+| Option | Default | Notes |
+|---|---|---|
+| `--demo` | off | Generate the synthetic demo dataset |
+| `--demo_samples_per_class` | `100` | Demo images per class |
+| `--data_dir` | `data/raw` | Real-data shard directory; unused in demo mode |
+| `--output` | `data/processed/features_communityforensics_real.parquet` | Feature Parquet path |
+| `--crop_size` | `512` | Crop size |
+| `--n_pca` | `128` | PCA components |
+| `--max_per_class` | `250` | Real-data cap per class |
+| `--max_unknown_per_model` | `50` | Real-data cap per unsupported generator |
+| `--max_unknown_total` | `1000` | Real-data cap across unsupported generators |
+| `--batch_size` | `1` | Rows decoded at once; keep small to bound RAM |
+| `--drop_image_bytes` | off | Do not retain original image bytes in the output |
+| `--no_degraded` | off | Skip degraded OOD examples |
+
+Without `--demo`, `build` refuses and directs you to the Kaggle workflow, because real-data feature extraction is expensive.
+
+### `train`
+
+```bash
+python main.py train --input <parquet> --model_out <path> --demo-only
+```
+
+| Option | Default | Notes |
+|---|---|---|
+| `--demo-only` | off | Required; explicitly trains a synthetic demo model that prediction and the web app reject |
+| `--input` | `data/processed/features_hybrid.parquet` | Feature Parquet to train from |
+| `--model_out` | `models/attribution_hybrid` | Output model basename |
+| `--report_dir` | `reports` | Directory for evaluation reports |
+| `--feature_col` | auto-detected | `hybrid_features` or `pca_features` |
+| `--test_size` | `0.2` | Test fraction |
+| `--cv_folds` | `5` | Cross-validation folds |
+| `--random_state` | `42` | Random seed |
+| `--n_estimators` | `500` | XGBoost trees |
+| `--max_depth` | `6` | XGBoost depth |
+| `--learning_rate` | `0.05` | XGBoost learning rate |
+
+Without `--demo-only`, `train` refuses and directs you to the Kaggle workflow. Training on real data happens only in Kaggle.
+
+### `download` and `download_shards`
+
+```bash
+python main.py download
+python main.py download_shards
+```
+
+Neither downloads anything locally. Both print the Kaggle-based workflow: run `python kaggle/download_outputs.py`, then `python kaggle/install_outputs.py`. See [Retrain in Kaggle](#retrain-in-kaggle-then-download-the-model).
 
 ## Use the local web app
 
@@ -187,7 +275,7 @@ python main.py train \
   --demo-only
 ```
 
-Demo builds also create a `features_hybrid.parquet` and `feature_extractor.pkl` beside the requested output, save another feature extractor at `models/feature_extractor.pkl`, and save reference images under `samples/`. Run demo commands only when you want to create those generated files; they are not needed for normal prediction.
+Demo builds also create a `features_hybrid.parquet` and `feature_extractor.pkl` beside the requested output, save another feature extractor at `models/feature_extractor.pkl`, and write one procedural `<class>_sample.png` reference image per class under `samples/`. Those generated images are not tracked in Git and are procedurally class-coded, so predictions on them are useful only for checking that the command runs, not for measuring accuracy. Run demo commands only when you want to create those generated files; they are not needed for normal prediction.
 
 ## Project layout
 
@@ -198,9 +286,9 @@ Demo builds also create a `features_hybrid.parquet` and `feature_extractor.pkl` 
 │   ├── web.py                      # Local FastAPI app backend
 │   └── web/                        # Browser UI and project guide
 ├── kaggle/                         # Standalone Kaggle sources and generated notebook
-├── models/               # Included evaluated model bundle and manifest
-├── reports/                        # Current Kaggle reports and evaluation summary
-├── samples/                        # Demo images and downloaded held-out test set
+├── models/                         # Installed Kaggle model bundle, manifest, and feature extractor
+├── reports/                        # Installed Kaggle evaluation and provenance reports
+├── samples/                        # Installed held-out test images and generated demo images
 ├── tests/                           # Automated test modules
 ├── requirements.txt                # General dependencies (no project install)
 ├── pyproject.toml                  # Packaging metadata and optional dependency groups

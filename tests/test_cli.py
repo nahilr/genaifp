@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
+
 from main import main, parse_build_args, parse_predict_args, parse_train_args
 
 
@@ -35,21 +37,21 @@ class TestCLI:
         assert build_args.demo is True
         assert build_args.crop_size == 256
 
-    def test_predict_sample_image(self, capsys):
-        sample = Path("samples/midjourney_v6_sample.png")
-        if sample.exists():
-            code = main(["predict", "--image_path", str(sample)])
-            assert code == 0
-            captured = capsys.readouterr()
-            assert '"predicted_engine"' in captured.out
+    def test_predict_sample_image(self, tmp_path, capsys):
+        sample = tmp_path / "sample.png"
+        Image.new("RGB", (64, 64), (120, 90, 60)).save(sample)
+        code = main(["predict", "--image_path", str(sample)])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert '"predicted_engine"' in captured.out
 
-    def test_direct_image_path_shortcut(self, capsys):
-        sample = Path("samples/midjourney_v6_sample.png")
-        if sample.exists():
-            code = main([str(sample)])
-            assert code == 0
-            captured = capsys.readouterr()
-            assert '"predicted_engine"' in captured.out
+    def test_direct_image_path_shortcut(self, tmp_path, capsys):
+        sample = tmp_path / "sample.png"
+        Image.new("RGB", (64, 64), (120, 90, 60)).save(sample)
+        code = main([str(sample)])
+        assert code == 0
+        captured = capsys.readouterr()
+        assert '"predicted_engine"' in captured.out
 
     def test_build_without_parquet_shards_returns_error(self, tmp_path, capsys):
         code = main(["build", "--data_dir", str(tmp_path), "--output", str(tmp_path / "out.parquet")])

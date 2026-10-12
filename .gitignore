@@ -79,7 +79,7 @@ data/*
 
 # Temporary feature exports and downloaded Kaggle outputs
 *.parquet.part
-/kaggle-output/**
+/kaggle-output
 
-# Downloaded held-out test set; the small procedural demo samples remain tracked.
-/samples/**
+# Generated local images: the installed held-out test set and demo sample images.
+/samples
