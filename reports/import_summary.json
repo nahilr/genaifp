@@ -1,0 +1,35 @@
+{
+  "dataset_id": "OwensLab/CommunityForensics + OwensLab/CommunityForensics-Small",
+  "target_counts": {
+    "flux_schnell": 100,
+    "ideogram_v1": 100,
+    "flux_dev": 100,
+    "firefly_image3": 100,
+    "dalle3": 100,
+    "firefly_image2": 100,
+    "imagen3": 100,
+    "ideogram_v2": 100,
+    "dalle2": 100,
+    "midjourney_v5_2": 100,
+    "midjourney_v6_1": 100,
+    "real_camera": 100
+  },
+  "unknown_counts": {},
+  "unknown_total": 0,
+  "degraded_examples": 1200,
+  "malformed_rows": 0,
+  "source_shards": [
+    "HFCF_Commercial_0.parquet",
+    "HFCF_Commercial_1.parquet",
+    "HFCF_small_174.parquet"
+  ],
+  "sampling": {
+    "max_per_target_class": 100,
+    "max_unsupported_per_generator": 25,
+    "max_unsupported_total": 200
+  },
+  "original_source_split_counts": {
+    "test": 1100,
+    "train": 100
+  }
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f5f7f6">
+    <meta name="description" content="Learn what GenAI Fingerprint analyzes, how it is trained, and what its results can and cannot tell you.">
+    <title>About the project · GenAI Fingerprint</title>
+    <link rel="stylesheet" href="/assets/style.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="GenAI Fingerprint home">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M4 21h8l4-11 7 21 5-14 3 4h5"/><circle cx="20" cy="20" r="17"/></svg>
+        <span>GenAI <strong>Fingerprint</strong></span>
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a class="nav-link" href="/">Analyze</a>
+        <a class="nav-link is-current" href="/about" aria-current="page">About the project</a>
+      </nav>
+      <div class="local-state"><span class="local-dot" aria-hidden="true"></span>Local research app</div>
+    </header>
+
+    <main class="page-main about-main">
+      <section class="about-hero" aria-labelledby="about-title">
+        <p class="eyebrow">ABOUT THE PROJECT</p>
+        <h1 id="about-title">A closer look at an image’s visual signature.</h1>
+        <p class="about-lede">GenAI Fingerprint is a research prototype for exploring whether visual content and spatial-frequency patterns can help distinguish images from a small set of known generators and real-camera photographs.</p>
+        <a class="primary-link" href="/">Try an image <span aria-hidden="true">→</span></a>
+      </section>
+
+      <section class="about-section" aria-labelledby="journey-title">
+        <div class="section-label"><span>01</span><span>THE ANALYSIS</span></div>
+        <div class="section-content">
+          <h2 id="journey-title">From image to result</h2>
+          <p class="section-lede">Each image passes through the same measured steps. The app compares the resulting feature vector with patterns learned during training.</p>
+          <ol class="process-list">
+            <li><span class="process-number">01</span><div><h3>Prepare the image</h3><p>The image is decoded, converted to RGB, and center-cropped to 512 × 512 pixels. Smaller images can be padded for the analysis.</p></div></li>
+            <li><span class="process-number">02</span><div><h3>Measure visual content</h3><p>DINOv2, a pretrained vision model, converts the crop into 384 numbers that summarize visual content and style.</p></div></li>
+            <li><span class="process-number">03</span><div><h3>Measure frequency patterns</h3><p>A second branch analyzes spatial-frequency structure. Its spectrum is compressed to 128 numbers, then combined with 12 hand-designed frequency measurements.</p></div></li>
+            <li><span class="process-number">04</span><div><h3>Compare and report</h3><p>The 524 measurements go to an XGBoost classifier. Calibrated class scores and an uncertainty check are returned with the model’s dataset provenance.</p></div></li>
+          </ol>
+          <div class="feature-summary"><span><strong>384</strong> visual</span><span><strong>128</strong> spectrum</span><span><strong>12</strong> frequency</span><span class="feature-total"><strong>524</strong> total measurements</span></div>
+        </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="data-title">
+        <div class="section-label"><span>02</span><span>DATA & TRAINING</span></div>
+        <div class="section-content">
+          <h2 id="data-title">What the model learns from</h2>
+          <p class="section-lede">The current real-data workflow uses a bounded sample from OwensLab’s CommunityForensics dataset. It covers DALL·E 2, DALL·E 3, Ideogram v2, Imagen 3, Midjourney v6, and real-camera images, plus unsupported-generator and degraded-image examples for uncertainty research.</p>
+          <div class="training-flow" aria-label="Training steps">
+            <div><span>01</span><strong>Collect & verify</strong><p>Read image and source metadata from Parquet shards; remove exact duplicate images.</p></div>
+            <div><span>02</span><strong>Keep prompts together</strong><p>Assign shared normalized prompts to a single split to reduce direct leakage.</p></div>
+            <div><span>03</span><strong>Fit & calibrate</strong><p>Fit scaling and PCA on training groups; use a separate calibration split.</p></div>
+            <div><span>04</span><strong>Evaluate once held out</strong><p>Report known-class metrics and out-of-distribution (OOD) rejection separately.</p></div>
+          </div>
+          <div class="data-caveat"><strong>Evaluation boundary</strong><p>The current commercial source shards contain rows marked <code>test</code>. This project’s prompt-grouped holdout is an internal research evaluation, not an official benchmark score. The dataset does not provide generation-batch IDs or individual source-image IDs, so those sources of overlap cannot be ruled out.</p></div>
+        </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="results-title-about">
+        <div class="section-label"><span>03</span><span>CURRENT EVIDENCE</span></div>
+        <div class="section-content">
+          <h2 id="results-title-about">What the evaluation says</h2>
+          <p class="section-lede">The current bounded evaluation is useful for guiding research, but it is not strong enough for dependable real-world attribution.</p>
+          <div class="metric-grid">
+            <article class="metric-card"><strong>64.2%</strong><span>known-class accuracy</span><small>123 held-out known examples</small></article>
+            <article class="metric-card"><strong>0.639</strong><span>macro-F1</span><small>Performance varies by class</small></article>
+            <article class="metric-card metric-warning"><strong>30.7%</strong><span>held-out OOD recall</span><small>Most unsupported examples were not rejected</small></article>
+          </div>
+          <p class="metric-note">These figures describe this sample and split only. They do not predict performance on arbitrary images or prove who created an image.</p>
+        </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="privacy-title">
+        <div class="section-label"><span>04</span><span>USE & LIMITS</span></div>
+        <div class="section-content">
+          <h2 id="privacy-title">Local processing, experimental answers</h2>
+          <div class="two-notes">
+            <article><h3>What happens to an upload</h3><p>The web app accepts requests from the local machine. It reads the image for analysis and does not save the upload as a file. The browser preview is temporary and stays in the page.</p></article>
+            <article><h3>What a result means</h3><p>A score is a model estimate for one supported class, not image provenance. Editing, compression, unfamiliar generators, and dataset differences can change the result. Do not use it as forensic evidence.</p></article>
+          </div>
+          <div class="supported-list"><strong>Supported known classes</strong><span>DALL·E 2</span><span>DALL·E 3</span><span>Ideogram v2</span><span>Imagen 3</span><span>Midjourney v6</span><span>Real camera</span></div>
+          <p class="setup-footnote">The analyzer requires a real-data model bundle with its evaluation manifest. If that model is unavailable, the analysis page explains the setup status instead of returning a prediction.</p>
+        </div>
+      </section>
+
+      <section class="about-cta"><div><p class="eyebrow">EXPLORE THE PROTOTYPE</p><h2>See what the model reports for an image.</h2></div><a class="primary-link" href="/">Open image analyzer <span aria-hidden="true">→</span></a></section>
+    </main>
+
+    <footer class="site-footer"><span>GenAI Fingerprint <span class="footer-muted">· experimental image attribution</span></span><a href="/">Back to analysis</a></footer>
+  </body>
+</html>

@@ -1,0 +1,117 @@
+{
+  "format_version": 1,
+  "model_type": "hybrid_524d",
+  "dataset_id": "OwensLab/CommunityForensics + OwensLab/CommunityForensics-Small",
+  "dataset_kind": "communityforensics",
+  "dataset_sha256": "8ad0080e69ddd57975c6779e01a5941e8e55d4d6257868910eb1434743a5a96a",
+  "evaluation_status": "research_holdout_complete",
+  "evaluation_type": "internal_prompt_grouped_holdout",
+  "evaluation_note": "Commercial-source rows are marked test in the source dataset. These partitions are an internal grouped evaluation and are not the dataset's official benchmark score.",
+  "evaluated_on_heldout_groups": true,
+  "grouping_method": "normalized_prompt_hash; exact-image-hash fallback when prompt is absent",
+  "grouping_limitations": [
+    "The dataset does not expose generation-batch IDs or unique source-photo IDs; prompt-disjoint groups cannot guarantee source-image-disjoint partitions."
+  ],
+  "classes": [
+    "dalle2",
+    "dalle3",
+    "firefly_image2",
+    "firefly_image3",
+    "flux_dev",
+    "flux_schnell",
+    "ideogram_v1",
+    "ideogram_v2",
+    "imagen3",
+    "midjourney_v5_2",
+    "midjourney_v6_1",
+    "real_camera"
+  ],
+  "feature_extractor": "feature_extractor.pkl",
+  "feature_dimensions": {
+    "visual": 384,
+    "spectral_pca": 128,
+    "scalar": 12
+  },
+  "visual_model": "facebookresearch/dinov2_vits14",
+  "preprocessing": {
+    "crop_size": 512,
+    "color": "RGB",
+    "crop_policy": "center-reflect-pad"
+  },
+  "source_shards": [
+    "HFCF_Commercial_0.parquet",
+    "HFCF_Commercial_1.parquet",
+    "HFCF_small_174.parquet"
+  ],
+  "sample_counts": {
+    "train_known": 780,
+    "calibration_known": 188,
+    "calibration_ood": 188,
+    "test_known": 232,
+    "test_ood": 232,
+    "train_groups": 735,
+    "calibration_groups": 178,
+    "test_groups": 224
+  },
+  "probabilities_calibrated": true,
+  "temperature": 0.9350000913457021,
+  "ood_threshold": 0.6767548996051458,
+  "ood_calibration": {
+    "validation_false_reject_rate": 0.047872340425531915,
+    "validation_ood_recall": 0.20212765957446807,
+    "validation_ood_auroc": 0.7230364418288819
+  },
+  "created_at": "2026-10-11T19:52:42.569257+00:00",
+  "kaggle_kernel": {
+    "handle": "nahilr/genaifp-communityforensics-train"
+  },
+  "sampling": {
+    "max_per_target_class": 100,
+    "max_unsupported_per_generator": 25,
+    "max_unsupported_total": 200,
+    "unsupported_generator_examples_found": 0,
+    "degraded_examples_included": true,
+    "original_image_bytes_retained_in_features": false
+  },
+  "source_provenance": {
+    "source_shard": [
+      "HFCF_Commercial_0.parquet",
+      "HFCF_Commercial_1.parquet",
+      "HFCF_small_174.parquet"
+    ],
+    "source_split": [
+      "test",
+      "train"
+    ],
+    "source_label": [
+      "1"
+    ],
+    "subset": [
+      "Commercial",
+      "Real"
+    ],
+    "model_name": [
+      "Dalle2",
+      "Dalle3",
+      "FLUX-dev",
+      "FLUX-schnell",
+      "Firefly_Image2",
+      "Firefly_Image3",
+      "IdeogramV1",
+      "IdeogramV2",
+      "Imagen3",
+      "LandscapesHQ",
+      "MidjourneyV5_2",
+      "MidjourneyV6_1"
+    ],
+    "real_source": [
+      "LAION",
+      "N/A"
+    ],
+    "original_source_split_counts": {
+      "test": 1100,
+      "train": 100
+    }
+  },
+  "original_image_bytes_retained_in_features": false
+}
