@@ -675,3 +675,42 @@ The hybrid architecture eliminates the fundamental vulnerability of spectral met
 - Configured Git LFS tracking for `models/feature_extractor.pkl`, `feature_extractor.pkl`, and `*feature_extractor.pkl` in `.gitattributes`.
 - Initialized Git LFS filters via `git lfs install` and renormalized the existing 70.9 MB committed file (`models/feature_extractor.pkl`) so that it is tracked as a Git LFS pointer object in the Git index.
 - Validation: verified LFS tracking via `git lfs ls-files` (`6ab01f6c74 * models/feature_extractor.pkl`); inspected pointer file with `git cat-file -p :models/feature_extractor.pkl`; verified successful joblib deserialization in Python; `git diff --check` passed cleanly.
+
+## 2026-10-13 — Document Hybrid Architecture, Center Crop, and 12 Handcrafted Metrics in README
+
+- Expanded `README.md` under "How the System Works" with three comprehensive technical design sections:
+  1. **Why a Hybrid Architecture?**: Contrasted JPEG DCT $8\times 8$ grid quantization and downscaling artifacts that degrade pure Fourier detection against DINOv2's compression invariance down to QF 65, explaining the 524d tabular fusion.
+  2. **Design Rationale: Why Center Crop?**: Detailed the prevention of resampling/interpolation confounds (which shift high-frequency energy by up to 74%), avoidance of peripheral watermarks/lens vignetting, coordinate standardization for 2D FFT/PCA, and forensic reproducibility.
+  3. **Deep Dive: The 12 Hand-Crafted Frequency Metrics**: Documented the mathematical formulation and physical forensic role of PASR, spectral slope ($\alpha$), intercept ($\beta$), the 8 radial sub-band energies, and 4-quadrant directional variance. Highlighted that the top 4 most important features across the entire trained model are domain-engineered scalars (`SubBand_E3`, `PASR`, `Slope_Alpha`, `Intercept_Beta`).
+- Updated the `README.md` Table of Contents with corresponding anchors.
+- Validation: verified markdown heading anchors; `git diff --check` passed with 0 errors; full test suite passed (`pytest` passing 85/85 tests). No Kaggle run performed.
+
+## 2026-10-13 — Replace Host Port Publishing with Internal Expose in Docker Compose for Traefik / Coolify
+
+- Modified `docker-compose.yml` to replace `ports: - "8000:8000"` with `expose: - "8000"`. This prevents host port collision errors (`Bind for :::8000 failed: port is already allocated`) on remote servers and Coolify instances that route subdomains via Traefik reverse proxy directly over Docker internal networks.
+- Updated `README.md` Docker container documentation to explain reverse proxy routing (Coolify/Traefik) vs. direct container runs (`docker run -p 8000:8000`).
+- Validation: ran web test suite with pytest (7/7 passed); verified `git diff --check` cleanly. No Kaggle run performed.
+
+## 2026-10-13 — Deep Dive System Architecture and End-to-End Pipeline in README
+
+- Restructured "How the System Works" in `README.md` into an exhaustive technical deep dive:
+  1. Embedded the complete dual-branch ASCII architecture flowchart (Visual Branch + Spectral Branch $\to$ 524d $\to$ XGBoost $\to$ Platt Scaling $\to$ 4-Signal OOD Gating $\to$ Verdict).
+  2. Documented the exact breakdown of the 524 feature dimensions across DINOv2 (0–383), Spectral PCA (384–511), and domain-engineered scalars (512–523).
+  3. Formatted the complete 9-step prediction lifecycle (Ingestion & Safety $\to$ Preprocessing & Luminance $\to$ SRM Residual $\to$ 2D FFT & PCA $\to$ DINOv2 $\to$ 524d Fusion $\to$ Temperature Scaling $\to$ OOD Gating $\to$ Provenance Output).
+  4. Updated the `Project Layout` directory tree with comprehensive module-level annotations across `kaggle/`, `models/`, `reports/`, `samples/`, and `src/genaifp/`.
+- Validation: verified markdown heading anchors; `git diff --check` passed with 0 errors; full test suite passed (`pytest` passing 85/85 tests). No Kaggle run performed.
+
+## 2026-10-13 — Add Separate Simplified and Full Detail Architecture Diagrams to README
+
+- Split the architecture visualization in `README.md` into two dedicated schematics:
+  1. **High-Level Architecture (Simplified)**: A high-level two-track conceptual block diagram comparing Track A (Look & Feel / DINOv2) and Track B (Pixel Math / Fourier noise residuals), designed for intuitive presentation walkthroughs.
+  2. **Detailed Engineering Pipeline (Full Technical Specification)**: An exhaustive system engineering schematic documenting tensor dimensions, normalization parameters ($\mu, \sigma$), SRM kernel matrices, 2D FFT equations, RAPSD/azimuthal scalar derivations, Platt temperature scaling ($T = 0.935$), and the 4-signal OOD gating classifier.
+- Updated Table of Contents anchors in `README.md`.
+- Validation: verified markdown anchors and syntax; `git diff --check` passed with 0 errors. No Kaggle run performed.
+
+## 2026-10-13 — Document Machine Learning Models and Model Bundle Artifacts in README
+
+- Added **Machine Learning Models Employed** section to `README.md` documenting the ensemble of 5 models: DINOv2 ViT-S/14 (frozen visual features), StandardScaler + PCA(128) (spatial-frequency compressor), XGBoost Tree Booster (multi-class attribution engine), Platt Temperature Scaling (probability calibration), and Logistic Regression Pipeline (4-signal OOD gating).
+- Added **Model Bundle & Artifact Specification (`models/`)** section detailing the roles, formats, and contents of `attribution_hybrid.json` (7.9 MB), `attribution_hybrid.pkl` (22 KB), `attribution_hybrid.manifest.json` (3.2 KB), and `feature_extractor.pkl` (70.9 MB, Git LFS).
+- Updated Table of Contents in `README.md`.
+- Validation: verified markdown anchors; `git diff --check` passed with 0 errors; full test suite passed (`pytest` passing 85/85 tests). No Kaggle run performed.

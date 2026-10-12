@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - GENAIFP_ALLOW_REMOTE=1
       - HOST=0.0.0.0
