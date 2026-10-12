@@ -2,11 +2,11 @@
 
 The Kaggle workflow does the expensive work: downloads the CommunityForensics shards, extracts image features, creates prompt-grouped partitions, trains and calibrates the model, evaluates it, and selects held-out test images. The notebook is standalone and uses Kaggle's installed libraries; it does not import `src/genaifp/` or install this repository.
 
-The configured sample caps are 100 clean examples per target class, 25 unsupported examples per generator, and 200 unsupported examples total when such rows occur. Each clean target image also produces a degraded OOD example, assigned to a prompt-grouped partition. The configured shards contain only the 11 target generators, so degraded copies supply the OOD examples in this run; unsupported-source rows are retained when available. The original dataset split is preserved in the provenance manifest. Since the commercial rows are marked `test` in the source, the model's split is an internal prompt-grouped evaluation, not an official benchmark result.
+The configured sample caps are 500 clean examples per target class, 25 unsupported examples per generator, and 200 unsupported examples total when such rows occur. Each clean target image also produces a degraded OOD example, assigned to a prompt-grouped partition. The configured shards contain only the 11 target generators, so degraded copies supply the OOD examples in this run; unsupported-source rows are retained when available. The original dataset split is preserved in the provenance manifest. Since the commercial rows are marked `test` in the source, the model's split is an internal prompt-grouped evaluation, not an official benchmark result.
 
 The 11 generator targets are DALL·E 2/3, Midjourney V5.2/V6.1, Firefly Image 2/3, FLUX dev/schnell, Ideogram V1/V2, and Imagen 3. V5.2 is used because that is the Midjourney version present in the configured training shards; it is not relabeled as V5.1.
 
-The completed version 6 run used 1,200 clean examples (100 per class): 780 for training, 188 for calibration, and 232 for testing. Their degraded copies supplied 188 calibration and 232 test OOD examples. Prompt groups are disjoint across these partitions. The source shards contained no unsupported-generator rows.
+The completed run used 6,000 clean examples (500 per class): 3,870 for training, 935 for calibration, and 1,195 for testing. Their degraded copies supplied 935 calibration and 1,195 test OOD examples. Prompt groups are disjoint across these partitions. The source shards contained no unsupported-generator rows.
 
 The packaging stage should leave exactly three downloadable files in `/kaggle/working`:
 
@@ -25,8 +25,8 @@ After changing Kaggle source files, regenerate the notebook and push/run it:
 ```bash
 python kaggle/build_notebook.py
 kaggle kernels push -p kaggle
-kaggle kernels status nahilr/genaifp-communityforensics-train
-kaggle kernels logs nahilr/genaifp-communityforensics-train
+kaggle kernels status nahilr/genaifp
+kaggle kernels logs nahilr/genaifp
 ```
 
 Kaggle needs internet access and a GPU accelerator. DINOv2 weights are fetched by the notebook through `torch.hub`. Check that the run completed before downloading its output.

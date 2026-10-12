@@ -95,7 +95,7 @@ def main() -> None:
             "validation_ood_auroc": evaluation["calibration"]["validation_ood_auroc"],
         },
         "created_at": environment["created_at"],
-        "kaggle_kernel": {"handle": "nahilr/genaifp-communityforensics-train"},
+        "kaggle_kernel": {"handle": "nahilr/genaifp"},
         "sampling": {
             "max_per_target_class": summary["sampling"]["max_per_target_class"],
             "max_unsupported_per_generator": summary["sampling"]["max_unsupported_per_generator"],

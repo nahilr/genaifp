@@ -249,23 +249,23 @@
               <tbody>
                 <tr>
                   <td><strong>Training</strong></td>
-                  <td class="num-col">780 images</td>
+                  <td class="num-col">3,870 images</td>
                   <td class="num-col">0</td>
-                  <td class="num-col">735</td>
+                  <td class="num-col">3,173</td>
                   <td>Fit spectral PCA (128d), scalers, and train the XGBoost classifier trees.</td>
                 </tr>
                 <tr>
                   <td><strong>Calibration</strong></td>
-                  <td class="num-col">188 images</td>
-                  <td class="num-col">188 images</td>
-                  <td class="num-col">178</td>
-                  <td>Fit Platt temperature scaling (T = 0.935) and set OOD distance gate (0.677).</td>
+                  <td class="num-col">935 images</td>
+                  <td class="num-col">935 images</td>
+                  <td class="num-col">780</td>
+                  <td>Fit Platt temperature scaling (T = 0.831) and set OOD distance gate (0.751).</td>
                 </tr>
                 <tr>
                   <td><strong>Held-Out Test</strong></td>
-                  <td class="num-col">232 images</td>
-                  <td class="num-col">232 images</td>
-                  <td class="num-col">224</td>
+                  <td class="num-col">1,195 images</td>
+                  <td class="num-col">1,195 images</td>
+                  <td class="num-col">974</td>
                   <td>Disjoint holdout evaluation across all 12 classes and degraded OOD recall.</td>
                 </tr>
                 <tr>
@@ -291,23 +291,23 @@
         <div class="section-label"><span>04</span><span>BENCHMARK RESULTS</span></div>
         <div class="section-content">
           <h2 id="results-title-about">Evaluation metrics on held-out holdout</h2>
-          <p class="section-lede">Evaluated on the internal held-out test split (232 known-class images + 232 degraded OOD images). Results demonstrate strong separation on distinctive engines, alongside clear confusion among modern latent diffusion architectures.</p>
+          <p class="section-lede">Evaluated on the internal held-out test split (1,195 known-class images + 1,195 degraded OOD images). Results demonstrate strong separation on distinctive engines, alongside clear confusion among modern latent diffusion architectures.</p>
 
           <div class="metric-grid">
             <article class="metric-card">
-              <strong>58.2%</strong>
+              <strong>72.4%</strong>
               <span>known-class accuracy</span>
-              <small>135 / 232 held-out known examples</small>
+              <small>865 / 1,195 held-out known examples</small>
             </article>
             <article class="metric-card">
-              <strong>0.556</strong>
+              <strong>0.708</strong>
               <span>macro-F1</span>
               <small>Unweighted average across 12 classes</small>
             </article>
             <article class="metric-card metric-warning">
-              <strong>15.5%</strong>
+              <strong>24.1%</strong>
               <span>held-out OOD recall</span>
-              <small>232 degraded holdouts (AUROC: 0.723, FRR: 4.8%)</small>
+              <small>1,195 degraded holdouts (AUROC: 0.751, FRR: 4.9%)</small>
             </article>
           </div>
 
@@ -326,87 +326,87 @@
               <tbody>
                 <tr>
                   <td><code>real_camera</code></td>
-                  <td class="num-col">18</td>
-                  <td class="num-col">94.4%</td>
-                  <td class="num-col"><strong>0.850</strong></td>
-                  <td><span class="badge badge-strong">Strong separation</span></td>
-                </tr>
-                <tr>
-                  <td><code>firefly_image3</code></td>
-                  <td class="num-col">21</td>
-                  <td class="num-col">85.7%</td>
-                  <td class="num-col"><strong>0.837</strong></td>
+                  <td class="num-col">95</td>
+                  <td class="num-col">93.7%</td>
+                  <td class="num-col"><strong>0.942</strong></td>
                   <td><span class="badge badge-strong">Strong separation</span></td>
                 </tr>
                 <tr>
                   <td><code>midjourney_v6_1</code></td>
-                  <td class="num-col">17</td>
-                  <td class="num-col">76.5%</td>
-                  <td class="num-col"><strong>0.765</strong></td>
-                  <td><span class="badge badge-strong">Moderate-strong separation</span></td>
+                  <td class="num-col">135</td>
+                  <td class="num-col">86.7%</td>
+                  <td class="num-col"><strong>0.897</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>firefly_image3</code></td>
+                  <td class="num-col">96</td>
+                  <td class="num-col">90.6%</td>
+                  <td class="num-col"><strong>0.853</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
                 </tr>
                 <tr>
                   <td><code>firefly_image2</code></td>
-                  <td class="num-col">20</td>
-                  <td class="num-col">80.0%</td>
-                  <td class="num-col"><strong>0.744</strong></td>
-                  <td><span class="badge badge-strong">Moderate-strong separation</span></td>
-                </tr>
-                <tr>
-                  <td><code>dalle2</code></td>
-                  <td class="num-col">18</td>
-                  <td class="num-col">94.4%</td>
-                  <td class="num-col"><strong>0.708</strong></td>
-                  <td><span class="badge badge-strong">Distinct spectral fingerprint</span></td>
+                  <td class="num-col">95</td>
+                  <td class="num-col">84.2%</td>
+                  <td class="num-col"><strong>0.829</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
                 </tr>
                 <tr>
                   <td><code>midjourney_v5_2</code></td>
-                  <td class="num-col">21</td>
-                  <td class="num-col">76.2%</td>
-                  <td class="num-col"><strong>0.615</strong></td>
+                  <td class="num-col">113</td>
+                  <td class="num-col">86.7%</td>
+                  <td class="num-col"><strong>0.824</strong></td>
+                  <td><span class="badge badge-strong">Strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>dalle2</code></td>
+                  <td class="num-col">91</td>
+                  <td class="num-col">93.4%</td>
+                  <td class="num-col"><strong>0.780</strong></td>
+                  <td><span class="badge badge-strong">Distinct spectral fingerprint</span></td>
+                </tr>
+                <tr>
+                  <td><code>dalle3</code></td>
+                  <td class="num-col">99</td>
+                  <td class="num-col">70.7%</td>
+                  <td class="num-col"><strong>0.741</strong></td>
+                  <td><span class="badge badge-strong">Moderate-strong separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>imagen3</code></td>
+                  <td class="num-col">98</td>
+                  <td class="num-col">60.2%</td>
+                  <td class="num-col"><strong>0.638</strong></td>
+                  <td><span class="badge badge-mod">Moderate separation</span></td>
+                </tr>
+                <tr>
+                  <td><code>flux_schnell</code></td>
+                  <td class="num-col">111</td>
+                  <td class="num-col">55.0%</td>
+                  <td class="num-col"><strong>0.587</strong></td>
                   <td><span class="badge badge-mod">Moderate separation</span></td>
                 </tr>
                 <tr>
                   <td><code>flux_dev</code></td>
-                  <td class="num-col">22</td>
-                  <td class="num-col">59.1%</td>
-                  <td class="num-col"><strong>0.578</strong></td>
+                  <td class="num-col">98</td>
+                  <td class="num-col">52.0%</td>
+                  <td class="num-col"><strong>0.537</strong></td>
                   <td><span class="badge badge-mod">Moderate separation</span></td>
                 </tr>
                 <tr>
-                  <td><code>dalle3</code></td>
-                  <td class="num-col">20</td>
-                  <td class="num-col">30.0%</td>
-                  <td class="num-col"><strong>0.387</strong></td>
-                  <td><span class="badge badge-confused">High confusion with modern diffusion</span></td>
-                </tr>
-                <tr>
-                  <td><code>imagen3</code></td>
-                  <td class="num-col">22</td>
-                  <td class="num-col">22.7%</td>
-                  <td class="num-col"><strong>0.357</strong></td>
+                  <td><code>ideogram_v2</code></td>
+                  <td class="num-col">95</td>
+                  <td class="num-col">35.8%</td>
+                  <td class="num-col"><strong>0.450</strong></td>
                   <td><span class="badge badge-confused">Challenging attribution</span></td>
-                </tr>
-                <tr>
-                  <td><code>flux_schnell</code></td>
-                  <td class="num-col">14</td>
-                  <td class="num-col">42.9%</td>
-                  <td class="num-col"><strong>0.343</strong></td>
-                  <td><span class="badge badge-confused">Confused with FLUX dev</span></td>
                 </tr>
                 <tr>
                   <td><code>ideogram_v1</code></td>
-                  <td class="num-col">21</td>
-                  <td class="num-col">23.8%</td>
-                  <td class="num-col"><strong>0.270</strong></td>
+                  <td class="num-col">69</td>
+                  <td class="num-col">49.3%</td>
+                  <td class="num-col"><strong>0.415</strong></td>
                   <td><span class="badge badge-confused">Challenging attribution</span></td>
-                </tr>
-                <tr>
-                  <td><code>ideogram_v2</code></td>
-                  <td class="num-col">18</td>
-                  <td class="num-col">16.7%</td>
-                  <td class="num-col"><strong>0.214</strong></td>
-                  <td><span class="badge badge-confused">High variance / low sample F1</span></td>
                 </tr>
               </tbody>
             </table>

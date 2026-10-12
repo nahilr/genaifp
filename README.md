@@ -249,46 +249,46 @@ Data provenance and splits from the latest evaluated Kaggle training run (*Owens
 |---|---:|---|
 | **Configured Source Shards** | 3 shards | `HFCF_Commercial_0`, `HFCF_Commercial_1`, `HFCF_small_174` |
 | **Target Engine Classes** | 12 classes | 11 generative AI models + `real_camera` |
-| **Sample Cap per Class** | 100 images | Prevents class imbalance during training and calibration |
-| **Total Clean Examples** | 1,200 images | Exactly 100 per target category |
-| **Total Degraded OOD Examples** | 1,200 images | Paired degraded copies for out-of-domain rejection tuning |
-| **Training Split** | 780 clean (735 prompt groups) | Disjoint prompt groups for fitting PCA and classifier |
-| **Calibration Split** | 188 clean + 188 degraded OOD | Disjoint prompt groups for probability & OOD threshold fitting |
-| **Held-Out Test Split** | 232 clean + 232 degraded OOD | Disjoint prompt groups (224 groups) for unbiased evaluation |
+| **Sample Cap per Class** | 500 images | Prevents class imbalance during training and calibration |
+| **Total Clean Examples** | 6,000 images | 500 per target category |
+| **Total Degraded OOD Examples** | 6,000 images | Paired degraded copies for out-of-domain rejection tuning |
+| **Training Split** | 3,870 clean (3,173 prompt groups) | Disjoint prompt groups for fitting PCA and classifier |
+| **Calibration Split** | 935 clean + 935 degraded OOD | Disjoint prompt groups (780 groups) for probability & OOD threshold fitting |
+| **Held-Out Test Split** | 1,195 clean + 1,195 degraded OOD | Disjoint prompt groups (974 groups) for unbiased evaluation |
 | **Held-Out Test Image Archive** | 120 curated images | 10 distinct holdouts per class exported to `samples/` |
 
 ### Benchmark & Attribution Metrics
 
-Evaluated on the internal held-out test split (232 known-class images + 232 degraded OOD images):
+Evaluated on the internal held-out test split (1,195 known-class images + 1,195 degraded OOD images):
 
 | Benchmark Metric | Result | Target / Context |
 |---|---:|---|
-| **Known-Class Held-Out Accuracy** | **58.2%** (135 / 232) | Multi-class attribution across all 12 classes |
-| **Known-Class Macro-F1** | **0.556** | Unweighted mean of per-class F1 scores |
-| **Calibration Temperature ($T$)** | `0.935` | Platt probability scaling parameter |
-| **OOD Rejection Threshold** | `0.677` | Score boundary for flagging unsupported inputs |
-| **Calibration OOD AUROC** | **0.723** | Area Under ROC Curve on calibration holdouts |
-| **Calibration False Reject Rate (FRR)**| **4.8%** | Fraction of valid target images incorrectly flagged as OOD |
-| **Held-Out Degraded OOD Recall** | **15.5%** | Detection rate of degraded variants on test holdout |
+| **Known-Class Held-Out Accuracy** | **72.4%** (865 / 1,195) | Multi-class attribution across all 12 classes |
+| **Known-Class Macro-F1** | **0.708** | Unweighted mean of per-class F1 scores |
+| **Calibration Temperature ($T$)** | `0.831` | Platt probability scaling parameter |
+| **OOD Rejection Threshold** | `0.751` | Score boundary for flagging unsupported inputs |
+| **Calibration OOD AUROC** | **0.751** | Area Under ROC Curve on calibration holdouts |
+| **Calibration False Reject Rate (FRR)**| **4.9%** | Fraction of valid target images incorrectly flagged as OOD |
+| **Held-Out Degraded OOD Recall** | **24.1%** | Detection rate of degraded variants on test holdout |
 
 ### Per-Class Held-Out Performance
 
-Performance breakdown on the 232 held-out test images across all 12 target classes:
+Performance breakdown on the 1,195 held-out test images across all 12 target classes:
 
 | Class | Test Samples | Accuracy | Macro F1 | Status |
 |---|---:|---:|---:|---|
-| **Real camera** | 18 | 94.4% | **0.850** | Strong separation |
-| **Firefly Image 3** | 21 | 85.7% | **0.837** | Strong separation |
-| **Midjourney V6.1** | 17 | 76.5% | **0.765** | Moderate-strong separation |
-| **Firefly Image 2** | 20 | 80.0% | **0.744** | Moderate-strong separation |
-| **DALL·E 2** | 18 | 94.4% | **0.708** | Distinct spectral fingerprint |
-| **Midjourney V5.2** | 21 | 76.2% | **0.615** | Moderate separation |
-| **FLUX dev** | 22 | 59.1% | **0.578** | Moderate separation |
-| **DALL·E 3** | 20 | 30.0% | **0.387** | High confusion with modern diffusion |
-| **Imagen 3** | 22 | 22.7% | **0.357** | Challenging attribution |
-| **FLUX schnell** | 14 | 42.9% | **0.343** | Confused with FLUX dev |
-| **Ideogram V1** | 21 | 23.8% | **0.270** | Challenging attribution |
-| **Ideogram V2** | 18 | 16.7% | **0.214** | High variance / low sample F1 |
+| **Real camera** | 95 | 93.7% | **0.942** | Strong separation |
+| **Midjourney V6.1** | 135 | 86.7% | **0.897** | Strong separation |
+| **Firefly Image 3** | 96 | 90.6% | **0.853** | Strong separation |
+| **Firefly Image 2** | 95 | 84.2% | **0.829** | Strong separation |
+| **Midjourney V5.2** | 113 | 86.7% | **0.824** | Strong separation |
+| **DALL·E 2** | 91 | 93.4% | **0.780** | Distinct spectral fingerprint |
+| **DALL·E 3** | 99 | 70.7% | **0.741** | Moderate-strong separation |
+| **Imagen 3** | 98 | 60.2% | **0.638** | Moderate separation |
+| **FLUX schnell** | 111 | 55.0% | **0.587** | Moderate separation |
+| **FLUX dev** | 98 | 52.0% | **0.537** | Moderate separation |
+| **Ideogram V2** | 95 | 35.8% | **0.450** | Challenging attribution |
+| **Ideogram V1** | 69 | 49.3% | **0.415** | Challenging attribution |
 
 *Note: These metrics reflect internal prompt-grouped research evaluation on CommunityForensics shards, not an official benchmark score. See [Dataset, Privacy, and Limitations](#dataset-privacy-and-limitations).*
 
@@ -323,10 +323,10 @@ kaggle kernels push -p kaggle
 Monitor the remote job while it executes on a GPU instance:
 ```bash
 # Check running status
-kaggle kernels status nahilr/genaifp-communityforensics-train
+kaggle kernels status nahilr/genaifp
 
 # Stream live execution logs
-kaggle kernels logs nahilr/genaifp-communityforensics-train
+kaggle kernels logs nahilr/genaifp
 ```
 
 #### 4. Download Exported Artifacts
@@ -336,7 +336,7 @@ Once execution completes, download the three packaged ZIP archives (`genaifp-mod
 python kaggle/download_outputs.py
 
 # Or download directly using the Kaggle CLI:
-kaggle kernels output nahilr/genaifp-communityforensics-train -p kaggle-output/downloads/
+kaggle kernels output nahilr/genaifp -p kaggle-output/downloads/
 ```
 
 #### 5. Install Artifacts into the Local Repository

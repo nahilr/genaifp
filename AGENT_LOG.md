@@ -409,7 +409,7 @@ The hybrid architecture eliminates the fundamental vulnerability of spectral met
 - Reduced importer peak allocations: read one source row at a time; keep spectrum and feature vectors as NumPy buffers instead of expanding the large spectrum to Python float lists; added `--drop_image_bytes` for training-only feature outputs. The Kaggle run uses this option so it does not store original image bytes in the feature table.
 - Installed Kaggle CLI 2.2.4 in the project virtual environment. Authentication succeeded for `nahilr`; quota showed 27.18 GPU hours remaining and 20 TPU hours.
 - Created private notebook source under `kaggle/genaifp-communityforensics-train/`. It embeds the project code, enables internet/GPU, downloads both commercial shards and `HFCF_small_174.parquet` directly from Hugging Face, caps sampling at 100 per target class and 25 per unsupported generator (200 OOD total), then evaluates and packages the model/report.
-- Kaggle accepted kernel version 1 at `nahilr/genaifp-communityforensics-train`; latest observed status is `RUNNING`. No Kaggle training output or downloaded model artifact is available yet. On completion, download the bundle and feature Parquet into the project, inspect the manifest/evaluation, and update the local web app to use the validated model.
+- Kaggle accepted kernel version 1 at `nahilr/genaifp`; latest observed status is `RUNNING`. No Kaggle training output or downloaded model artifact is available yet. On completion, download the bundle and feature Parquet into the project, inspect the manifest/evaluation, and update the local web app to use the validated model.
 - Updated `README.md` with Kaggle launch/status/log/output commands, remote download details, and the official-source-split limitation. Raw local shards remain intact on the mounted disks; no local dataset files were deleted.
 - Kernel version 1 completed remote feature extraction with 100 rows per target class, 150 unsupported-generator rows, 600 degradation rows (1,350 total), and zero malformed rows. Training then exposed a missing `sample_kind` column in the research trainer's read list; added it to the loaded optional columns.
 - Regenerated the private notebook with the trainer fix, compact NumPy-backed spectra, omitted raw image bytes, streaming feature-file hashing, and a Kaggle-normalized notebook filename. Kernel version 2 was accepted, queued, and completed successfully on a Tesla T4.
@@ -647,5 +647,31 @@ The hybrid architecture eliminates the fundamental vulnerability of spectral met
 - Added complete **12-Class Reference Table** documenting engine families, generator architectures, and forensic characteristics (GLIDE artifacts, flow matching, natural CFA sensor noise).
 - Added **Dataset Split Counts Table** detailing clean vs. degraded sample counts, prompt group counts, and provenance for train, calibration, and test partitions.
 - Added full **Per-Class Benchmark Performance Table** showing test sample sizes, accuracy, macro-F1, and separation status across all 12 classes.
-- Fixed layout and CSS formatting issues on `/about`: converted `.process-list li` to child selector `.process-list > li` to prevent breaking nested bullet lists; removed all inline `style` attributes to strictly comply with `Content-Security-Policy: style-src 'self'`; added `.num-col` right-alignment for tabular statistics; styled `.badge` pill chips for class separation statuses; and balanced the ASCII pipeline architecture diagram to prevent horizontal overflow.
 - Validation: ran `pytest tests/test_web.py` (7 passed). No Kaggle run performed.
+
+## 2026-10-12 — Scale Kaggle sample cap to 500 and stream Parquet feature table
+
+- Raised `MAX_PER_CLASS` from 100 to 500 in `kaggle/config.py` to address small-sample bottlenecks and class confusion across modern diffusion architectures. With 500 images per target class, the training split will receive ~3,900 clean images across the 12 classes (compared to 780 in version 6).
+- Replaced monolithic `pa.Table.from_pylist` in `kaggle/dataset_build.py:write_feature_file` with chunked `pq.ParquetWriter` batches (64 rows per batch) to prevent out-of-memory errors during larger feature table generation in Kaggle environments.
+- Regenerated `kaggle/communityforensics_train.ipynb` using `kaggle/build_notebook.py` and updated `kaggle/README.md` configured sample caps.
+- Validation: regenerated the standalone notebook with matching cell IDs; verified chunked batch Parquet writer round-trip with schema fidelity; ran the full test suite (`pytest` passing 85/85 tests). Kaggle push and run were not performed (requires user Kaggle credentials).
+
+## 2026-10-12 — Unify Kaggle kernel handle to nahilr/genaifp
+
+- Updated Kaggle kernel identifier across `kaggle/kernel-metadata.json`, `kaggle/download_outputs.py`, `kaggle/main.py`, `models/attribution_hybrid.manifest.json`, `reports/attribution_hybrid.manifest.json`, `kaggle/README.md`, and `README.md` to `nahilr/genaifp`.
+- Reassembled `kaggle/communityforensics_train.ipynb` using `kaggle/build_notebook.py`.
+- Validation: regenerated the standalone notebook; verified kernel ID matching in metadata and download scripts; `git diff --check` passed cleanly. No Kaggle run performed.
+
+## 2026-10-13 — Download, install, and verify Kaggle 500-sample run (nahilr/genaifp)
+
+- Checked remote kernel execution on Kaggle (`nahilr/genaifp`): run completed successfully with `KernelWorkerStatus.COMPLETE`.
+- Downloaded the three output archives (`genaifp-model-bundle.zip`, `genaifp-test-images.zip`, and `genaifp-reports.zip`) via `kaggle/download_outputs.py` and installed them via `kaggle/install_outputs.py`.
+- Evaluated performance jump: known-class held-out accuracy improved from 58.2% to **72.4%** (+14.2 pp), and macro-F1 improved from 0.556 to **0.708** across 1,195 held-out test examples. Key gains: DALL·E 3 accuracy jumped from 30.0% to 70.7% (F1 0.741), Imagen 3 jumped from 22.7% to 60.2% (F1 0.638), Midjourney V5.2 reached 86.7% accuracy (F1 0.824), Midjourney V6.1 reached 86.7% accuracy (F1 0.897), and Real Camera achieved 93.7% accuracy (F1 0.942). Degraded OOD recall increased from 15.5% to 24.1% with calibration AUROC at 0.751.
+- Updated `README.md`, `kaggle/README.md`, and `src/genaifp/web/about.html` documentation and tables with the verified 500-sample results.
+- Validation: executed `main.py predict` on a held-out test image (`samples/communityforensics-test/images/dalle2/01_00000424.png`), correctly predicting `dalle2` at 89.4% confidence; ran full test suite (`pytest` passing 85/85 tests, 1 scikit-learn warning); `git diff --check` passed cleanly.
+
+## 2026-10-13 — Track feature_extractor.pkl with Git LFS
+
+- Configured Git LFS tracking for `models/feature_extractor.pkl`, `feature_extractor.pkl`, and `*feature_extractor.pkl` in `.gitattributes`.
+- Initialized Git LFS filters via `git lfs install` and renormalized the existing 70.9 MB committed file (`models/feature_extractor.pkl`) so that it is tracked as a Git LFS pointer object in the Git index.
+- Validation: verified LFS tracking via `git lfs ls-files` (`6ab01f6c74 * models/feature_extractor.pkl`); inspected pointer file with `git cat-file -p :models/feature_extractor.pkl`; verified successful joblib deserialization in Python; `git diff --check` passed cleanly.

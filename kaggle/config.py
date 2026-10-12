@@ -37,7 +37,7 @@ TARGET_MODELS = {
 }
 REAL_MODELS = {"landscapeshq", "coco", "ffhq", "vision"}
 TARGET_LABELS = sorted([*TARGET_MODELS.values(), "real_camera"])
-MAX_PER_CLASS = 100
+MAX_PER_CLASS = 500
 MAX_UNKNOWN_PER_MODEL = 25
 MAX_UNKNOWN_TOTAL = 200
 IMAGE_EXPORT_PER_CLASS = 10

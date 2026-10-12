@@ -3,7 +3,7 @@
   "model_type": "hybrid_524d",
   "dataset_id": "OwensLab/CommunityForensics + OwensLab/CommunityForensics-Small",
   "dataset_kind": "communityforensics",
-  "dataset_sha256": "8ad0080e69ddd57975c6779e01a5941e8e55d4d6257868910eb1434743a5a96a",
+  "dataset_sha256": "114089cb2cc8d99b9120f888e6be3d596065050224004e63ff874cd3ea002755",
   "evaluation_status": "research_holdout_complete",
   "evaluation_type": "internal_prompt_grouped_holdout",
   "evaluation_note": "Commercial-source rows are marked test in the source dataset. These partitions are an internal grouped evaluation and are not the dataset's official benchmark score.",
@@ -44,29 +44,29 @@
     "HFCF_small_174.parquet"
   ],
   "sample_counts": {
-    "train_known": 780,
-    "calibration_known": 188,
-    "calibration_ood": 188,
-    "test_known": 232,
-    "test_ood": 232,
-    "train_groups": 735,
-    "calibration_groups": 178,
-    "test_groups": 224
+    "train_known": 3870,
+    "calibration_known": 935,
+    "calibration_ood": 935,
+    "test_known": 1195,
+    "test_ood": 1195,
+    "train_groups": 3173,
+    "calibration_groups": 780,
+    "test_groups": 974
   },
   "probabilities_calibrated": true,
-  "temperature": 0.9350000913457021,
-  "ood_threshold": 0.6767548996051458,
+  "temperature": 0.8308710012907685,
+  "ood_threshold": 0.7512210188254911,
   "ood_calibration": {
-    "validation_false_reject_rate": 0.047872340425531915,
-    "validation_ood_recall": 0.20212765957446807,
-    "validation_ood_auroc": 0.7230364418288819
+    "validation_false_reject_rate": 0.04919786096256684,
+    "validation_ood_recall": 0.2320855614973262,
+    "validation_ood_auroc": 0.7510892504789957
   },
-  "created_at": "2026-10-11T19:52:42.569257+00:00",
+  "created_at": "2026-10-12T19:18:38.945143+00:00",
   "kaggle_kernel": {
-    "handle": "nahilr/genaifp-communityforensics-train"
+    "handle": "nahilr/genaifp"
   },
   "sampling": {
-    "max_per_target_class": 100,
+    "max_per_target_class": 500,
     "max_unsupported_per_generator": 25,
     "max_unsupported_total": 200,
     "unsupported_generator_examples_found": 0,
@@ -109,8 +109,8 @@
       "N/A"
     ],
     "original_source_split_counts": {
-      "test": 1100,
-      "train": 100
+      "test": 5500,
+      "train": 500
     }
   },
   "original_image_bytes_retained_in_features": false

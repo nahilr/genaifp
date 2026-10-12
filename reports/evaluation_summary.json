@@ -1,89 +1,89 @@
 {
   "test": {
-    "accuracy": 0.5818965517241379,
-    "macro_f1": 0.5557708097029509,
+    "accuracy": 0.7238493723849372,
+    "macro_f1": 0.7075481441270468,
     "per_class": {
       "dalle2": {
-        "samples": 18,
-        "accuracy": 0.9444444444444444,
-        "f1": 0.7083333333333334
+        "samples": 91,
+        "accuracy": 0.9340659340659341,
+        "f1": 0.7798165137614679
       },
       "dalle3": {
-        "samples": 20,
-        "accuracy": 0.3,
-        "f1": 0.3870967741935484
+        "samples": 99,
+        "accuracy": 0.7070707070707071,
+        "f1": 0.7407407407407407
       },
       "firefly_image2": {
-        "samples": 20,
-        "accuracy": 0.8,
-        "f1": 0.7441860465116279
+        "samples": 95,
+        "accuracy": 0.8421052631578947,
+        "f1": 0.8290155440414507
       },
       "firefly_image3": {
-        "samples": 21,
-        "accuracy": 0.8571428571428571,
-        "f1": 0.8372093023255814
+        "samples": 96,
+        "accuracy": 0.90625,
+        "f1": 0.8529411764705882
       },
       "flux_dev": {
-        "samples": 22,
-        "accuracy": 0.5909090909090909,
-        "f1": 0.5777777777777777
+        "samples": 98,
+        "accuracy": 0.5204081632653061,
+        "f1": 0.5368421052631579
       },
       "flux_schnell": {
-        "samples": 14,
-        "accuracy": 0.42857142857142855,
-        "f1": 0.34285714285714286
+        "samples": 111,
+        "accuracy": 0.5495495495495496,
+        "f1": 0.5865384615384616
       },
       "ideogram_v1": {
-        "samples": 21,
-        "accuracy": 0.23809523809523808,
-        "f1": 0.2702702702702703
+        "samples": 69,
+        "accuracy": 0.4927536231884058,
+        "f1": 0.4146341463414634
       },
       "ideogram_v2": {
-        "samples": 18,
-        "accuracy": 0.16666666666666666,
-        "f1": 0.21428571428571427
+        "samples": 95,
+        "accuracy": 0.35789473684210527,
+        "f1": 0.4503311258278146
       },
       "imagen3": {
-        "samples": 22,
-        "accuracy": 0.22727272727272727,
-        "f1": 0.35714285714285715
+        "samples": 98,
+        "accuracy": 0.6020408163265306,
+        "f1": 0.6378378378378379
       },
       "midjourney_v5_2": {
-        "samples": 21,
-        "accuracy": 0.7619047619047619,
-        "f1": 0.6153846153846154
+        "samples": 113,
+        "accuracy": 0.8672566371681416,
+        "f1": 0.8235294117647058
       },
       "midjourney_v6_1": {
-        "samples": 17,
-        "accuracy": 0.7647058823529411,
-        "f1": 0.7647058823529411
+        "samples": 135,
+        "accuracy": 0.8666666666666667,
+        "f1": 0.896551724137931
       },
       "real_camera": {
-        "samples": 18,
-        "accuracy": 0.9444444444444444,
-        "f1": 0.85
+        "samples": 95,
+        "accuracy": 0.9368421052631579,
+        "f1": 0.9417989417989417
       }
     },
-    "known_samples": 232,
-    "ood_samples": 232,
-    "ood_recall": 0.15517241379310345,
-    "ood_threshold": 0.6767548996051458
+    "known_samples": 1195,
+    "ood_samples": 1195,
+    "ood_recall": 0.2410041841004184,
+    "ood_threshold": 0.7512210188254911
   },
   "calibration": {
-    "temperature": 0.9350000913457021,
-    "validation_false_reject_rate": 0.047872340425531915,
-    "validation_ood_recall": 0.20212765957446807,
-    "validation_ood_auroc": 0.7230364418288819
+    "temperature": 0.8308710012907685,
+    "validation_false_reject_rate": 0.04919786096256684,
+    "validation_ood_recall": 0.2320855614973262,
+    "validation_ood_auroc": 0.7510892504789957
   },
   "split_counts": {
-    "train_known": 780,
-    "calibration_known": 188,
-    "calibration_ood": 188,
-    "test_known": 232,
-    "test_ood": 232,
-    "train_groups": 735,
-    "calibration_groups": 178,
-    "test_groups": 224
+    "train_known": 3870,
+    "calibration_known": 935,
+    "calibration_ood": 935,
+    "test_known": 1195,
+    "test_ood": 1195,
+    "train_groups": 3173,
+    "calibration_groups": 780,
+    "test_groups": 974
   },
   "manual_test_images": {
     "manifest": "communityforensics-image-manifest.csv",

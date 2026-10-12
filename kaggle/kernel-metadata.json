@@ -1,6 +1,6 @@
 {
-  "id": "nahilr/genaifp-communityforensics-train",
-  "title": "genaifp CommunityForensics Train",
+  "id": "nahilr/genaifp",
+  "title": "genaifp",
   "code_file": "communityforensics_train.ipynb",
   "language": "python",
   "kernel_type": "notebook",

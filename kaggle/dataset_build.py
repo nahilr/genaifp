@@ -136,18 +136,45 @@ def build_feature_rows(model: torch.nn.Module, device: torch.device) -> tuple[li
     return rows, feature_summary
 
 def write_feature_file(rows: list[dict[str, object]]) -> None:
-    fields = [
-        "label", "is_ood", "sample_kind", "group_id", "image_name", "model_name", "prompt",
-        "real_source", "subset", "source_shard", "source_split", "source_label", "dataset_id",
-        "dataset_kind", "visual_features", "flat_spectrum", "scalar_12", "image_data",
-    ]
-    table_rows = []
-    for row in rows:
-        output = {key: row.get(key) for key in fields}
-        for feature in ("visual_features", "flat_spectrum", "scalar_12"):
-            output[feature] = np.asarray(output[feature], dtype=np.float32).tolist()
-        output["image_data"] = None
-        table_rows.append(output)
-    table = pa.Table.from_pylist(table_rows)
-    pq.write_table(table, FEATURES_PATH, compression="zstd", row_group_size=16)
-    print(f"Feature table: {FEATURES_PATH} ({table.num_rows:,} rows)")
+    schema = pa.schema([
+        ("label", pa.string()),
+        ("is_ood", pa.bool_()),
+        ("sample_kind", pa.string()),
+        ("group_id", pa.string()),
+        ("image_name", pa.string()),
+        ("model_name", pa.string()),
+        ("prompt", pa.string()),
+        ("real_source", pa.string()),
+        ("subset", pa.string()),
+        ("source_shard", pa.string()),
+        ("source_split", pa.string()),
+        ("source_label", pa.string()),
+        ("dataset_id", pa.string()),
+        ("dataset_kind", pa.string()),
+        ("visual_features", pa.list_(pa.float32())),
+        ("flat_spectrum", pa.list_(pa.float32())),
+        ("scalar_12", pa.list_(pa.float32())),
+        ("image_data", pa.binary()),
+    ])
+    with pq.ParquetWriter(FEATURES_PATH, schema, compression="zstd") as writer:
+        batch_size = 64
+        for i in range(0, len(rows), batch_size):
+            chunk = rows[i : i + batch_size]
+            batch_data = {
+                field.name: [row.get(field.name) for row in chunk]
+                for field in schema
+                if field.name not in ("visual_features", "flat_spectrum", "scalar_12", "image_data")
+            }
+            batch_data["visual_features"] = [
+                np.asarray(r["visual_features"], dtype=np.float32).tolist() for r in chunk
+            ]
+            batch_data["flat_spectrum"] = [
+                np.asarray(r["flat_spectrum"], dtype=np.float32).tolist() for r in chunk
+            ]
+            batch_data["scalar_12"] = [
+                np.asarray(r["scalar_12"], dtype=np.float32).tolist() for r in chunk
+            ]
+            batch_data["image_data"] = [None] * len(chunk)
+            batch = pa.RecordBatch.from_pydict(batch_data, schema=schema)
+            writer.write_batch(batch)
+    print(f"Feature table: {FEATURES_PATH} ({len(rows):,} rows)")

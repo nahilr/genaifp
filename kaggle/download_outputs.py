@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-KERNEL = "nahilr/genaifp-communityforensics-train"
+KERNEL = "nahilr/genaifp"
 ARCHIVES = (
     "genaifp-model-bundle.zip",
     "genaifp-test-images.zip",
